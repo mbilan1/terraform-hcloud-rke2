@@ -1,10 +1,12 @@
-#! /bin/bash
+#!/bin/bash
+set -euo pipefail
 
 NODE_IP=""
 
 while [[ "$NODE_IP" = "" ]]
 do
-  NODE_IP=$(curl -s http://169.254.169.254/hetzner/v1/metadata/private-networks | grep "ip:" | cut -f 3 -d" ")
+  NODE_IP=$(curl -s http://169.254.169.254/hetzner/v1/metadata/private-networks | grep "ip:" | cut -f 3 -d" " || true)
+  sleep 1
 done
 
 mkdir -p /etc/rancher/rke2

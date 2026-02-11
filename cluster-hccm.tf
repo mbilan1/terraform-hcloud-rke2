@@ -1,5 +1,5 @@
 resource "kubernetes_secret_v1" "hcloud_ccm" {
-  depends_on = [time_sleep.wait_30_seconds, hcloud_server.master, hcloud_server.additional_masters, hcloud_server.worker]
+  depends_on = [null_resource.wait_for_cluster_ready]
   count      = var.cluster_configuration.hcloud_controller.preinstall ? 1 : 0
   metadata {
     name      = "hcloud"
@@ -8,7 +8,7 @@ resource "kubernetes_secret_v1" "hcloud_ccm" {
 
   data = {
     token   = var.hetzner_token
-    network = "${hcloud_network.main.name}"
+    network = hcloud_network.main.name
   }
 
   lifecycle {

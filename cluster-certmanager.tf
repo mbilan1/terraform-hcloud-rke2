@@ -1,5 +1,5 @@
 resource "kubernetes_namespace_v1" "cert_manager" {
-  depends_on = [time_sleep.wait_30_seconds, hcloud_server.master, hcloud_server.additional_masters, hcloud_server.worker]
+  depends_on = [null_resource.wait_for_cluster_ready]
   count      = var.cluster_configuration.cert_manager.preinstall ? 1 : 0
   metadata {
     name = "cert-manager"
@@ -43,11 +43,18 @@ resource "helm_release" "cert_manager" {
   version    = var.cluster_configuration.cert_manager.version
 
   namespace = "cert-manager"
+  timeout   = 600
 
-  set = [{
-    name  = "installCRDs"
-    value = "true"
-  }]
+  set = [
+    {
+      name  = "installCRDs"
+      value = "true"
+    },
+    {
+      name  = "startupapicheck.timeout"
+      value = "5m"
+    },
+  ]
 }
 
 resource "kubectl_manifest" "cert_manager_issuer" {

@@ -1,10 +1,12 @@
-#! /bin/bash
+#!/bin/bash
+set -euo pipefail
 
 NODE_IP=""
 
 while [[ "$NODE_IP" = "" ]]
 do
-  NODE_IP=$(curl -s http://169.254.169.254/hetzner/v1/metadata/private-networks | grep "ip:" | cut -f 3 -d" ")
+  NODE_IP=$(curl -s http://169.254.169.254/hetzner/v1/metadata/private-networks | grep "ip:" | cut -f 3 -d" " || true)
+  sleep 1
 done
 
 mkdir -p /etc/rancher/rke2
@@ -26,10 +28,10 @@ kube-controller-manager-arg:
   - "bind-address=0.0.0.0"
 kube-scheduler-arg:
   - "bind-address=0.0.0.0"
-kube-proxy:
+kube-proxy-arg:
   - "bind-address=0.0.0.0"
 %{ endif }
-%{ if OIDC_URL != null }
+%{ if OIDC_URL != "" }
 kube-apiserver-arg:
   - anonymous-auth=true
   - api-audiences=${OIDC_URL},https://kubernetes.default.svc.cluster.local,rke2

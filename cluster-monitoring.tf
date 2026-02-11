@@ -1,5 +1,5 @@
 resource "kubernetes_namespace_v1" "monitoring" {
-  depends_on = [time_sleep.wait_30_seconds, hcloud_server.master, hcloud_server.additional_masters, hcloud_server.worker]
+  depends_on = [null_resource.wait_for_cluster_ready]
   count      = var.cluster_configuration.monitoring_stack.preinstall ? 1 : 0
   metadata {
     name = "monitoring"

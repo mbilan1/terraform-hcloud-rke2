@@ -1,6 +1,6 @@
 resource "kubernetes_namespace_v1" "istio_system" {
   count      = var.cluster_configuration.istio_service_mesh.preinstall ? 1 : 0
-  depends_on = [time_sleep.wait_30_seconds, hcloud_server.master, hcloud_server.additional_masters, hcloud_server.worker]
+  depends_on = [null_resource.wait_for_cluster_ready]
   metadata {
     name = "istio-system"
   }
@@ -39,7 +39,7 @@ data "http" "gateway_api" {
 }
 
 resource "kubectl_manifest" "gateway_api" {
-  depends_on = [time_sleep.wait_30_seconds, hcloud_server.master, hcloud_server.additional_masters, hcloud_server.worker]
+  depends_on = [null_resource.wait_for_cluster_ready]
   for_each   = var.preinstall_gateway_api_crds ? { for i in local.gateway_api_crds : index(local.gateway_api_crds, i) => i } : {}
   yaml_body  = each.value
 }

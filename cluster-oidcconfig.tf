@@ -1,10 +1,10 @@
 resource "kubernetes_ingress_v1" "oidc" {
-  depends_on = [time_sleep.wait_30_seconds, hcloud_server.master, hcloud_server.additional_masters, hcloud_server.worker]
-  count      = var.expose_oidc_issuer_url != null ? 1 : 0
+  depends_on = [null_resource.wait_for_cluster_ready]
+  count      = var.expose_oidc_issuer_url ? 1 : 0
 
   metadata {
     name      = "oidc-ingress"
-    namespace = "default"
+    namespace = "kube-system"
     annotations = {
       "cert-manager.io/cluster-issuer"               = "cloudflare"
       "nginx.ingress.kubernetes.io/backend-protocol" = "HTTPS"
@@ -59,8 +59,8 @@ resource "kubernetes_ingress_v1" "oidc" {
 }
 
 resource "kubernetes_cluster_role_binding_v1" "oidc" {
-  depends_on = [time_sleep.wait_30_seconds, hcloud_server.master, hcloud_server.additional_masters, hcloud_server.worker]
-  count = var.expose_oidc_issuer_url != null ? 1 : 0
+  depends_on = [null_resource.wait_for_cluster_ready]
+  count      = var.expose_oidc_issuer_url ? 1 : 0
   metadata {
     name = "service-account-issuer-discovery"
   }

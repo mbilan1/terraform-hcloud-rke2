@@ -1,17 +1,28 @@
 variable "hetzner_token" {
   type        = string
+  sensitive   = true
   description = "Hetzner Cloud API Token"
 }
 
 variable "domain" {
   type        = string
   description = "Domain for the cluster"
+
+  validation {
+    condition     = length(var.domain) > 0
+    error_message = "Domain must not be empty."
+  }
 }
 
 variable "master_node_count" {
   type        = number
   default     = 1
-  description = "value for the number of master nodes"
+  description = "Number of master (control-plane) nodes. Use 1 for non-HA or >= 3 for HA (etcd quorum)."
+
+  validation {
+    condition     = var.master_node_count == 1 || var.master_node_count >= 3
+    error_message = "master_node_count must be 1 (non-HA) or >= 3 (HA with etcd quorum). A value of 2 results in split-brain."
+  }
 }
 
 variable "worker_node_count" {
@@ -75,36 +86,42 @@ variable "network_zone" {
 variable "network_address" {
   type        = string
   default     = "10.0.0.0/16"
-  description = "Define the network for the cluster in CIDR format (e.g,. '10.0.0.0/16')."
+  description = "Define the network for the cluster in CIDR format (e.g., '10.0.0.0/16')."
+}
+
+variable "subnet_address" {
+  type        = string
+  default     = "10.0.1.0/24"
+  description = "Define the subnet for cluster nodes in CIDR format. Must be within network_address range."
 }
 
 variable "node_locations" {
   type        = list(string)
-  default     = ["hel1", "nbg1"]
+  default     = ["hel1", "nbg1", "fsn1"]
   description = "Define the location in which nodes will be deployed. (Must be in the same network zone.)"
 }
 
 variable "master_node_image" {
   type        = string
-  default     = "ubuntu-22.04"
+  default     = "ubuntu-24.04"
   description = "Define the image for the master nodes."
 }
 
 variable "master_node_server_type" {
   type        = string
-  default     = "cpx21"
+  default     = "cx23"
   description = "Define the server type for the master nodes."
 }
 
 variable "worker_node_image" {
   type        = string
-  default     = "ubuntu-22.04"
+  default     = "ubuntu-24.04"
   description = "Define the image for the worker nodes."
 }
 
 variable "worker_node_server_type" {
   type        = string
-  default     = "cpx21"
+  default     = "cx23"
   description = "Define the server type for the worker nodes."
 }
 
@@ -165,7 +182,8 @@ variable "create_cloudflare_dns_record" {
 
 variable "cloudflare_token" {
   type        = string
-  default     = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  default     = "0000000000000000000000000000000000000000"
+  sensitive   = true
   description = "The Cloudflare API token. (Required if create_cloudflare_dns_record is true.)"
 }
 

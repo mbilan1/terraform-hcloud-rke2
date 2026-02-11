@@ -1,4 +1,6 @@
 terraform {
+  required_version = ">= 1.5.0"
+
   required_providers {
     hcloud = {
       source  = "hetznercloud/hcloud"
@@ -6,7 +8,7 @@ terraform {
     }
     remote = {
       source  = "tenstad/remote"
-      version = "0.2.1"
+      version = "~> 0.2"
     }
     cloudflare = {
       source  = "cloudflare/cloudflare"
@@ -14,7 +16,39 @@ terraform {
     }
     kubectl = {
       source  = "gavinbunney/kubectl"
-      version = "1.19.0"
+      version = "~> 1.19"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = ">= 2.23"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = ">= 2.11"
+    }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.2"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.5"
+    }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.9"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.4"
+    }
+    http = {
+      source  = "hashicorp/http"
+      version = "~> 3.4"
     }
   }
 }

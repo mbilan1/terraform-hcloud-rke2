@@ -41,6 +41,20 @@ resource "hcloud_load_balancer_service" "management_lb_k8s_service" {
   listen_port      = 6443
   destination_port = 6443
   depends_on       = [hcloud_load_balancer_target.initial_master_target]
+
+  health_check {
+    protocol = "http"
+    port     = 6443
+    interval = 15
+    timeout  = 10
+    retries  = 3
+
+    http {
+      path         = "/healthz"
+      tls          = true
+      status_codes = ["200"]
+    }
+  }
 }
 
 resource "hcloud_load_balancer_service" "management_lb_ssh_service" {
@@ -49,6 +63,14 @@ resource "hcloud_load_balancer_service" "management_lb_ssh_service" {
   listen_port      = 22
   destination_port = 22
   depends_on       = [hcloud_load_balancer_target.initial_master_target]
+
+  health_check {
+    protocol = "tcp"
+    port     = 22
+    interval = 15
+    timeout  = 10
+    retries  = 3
+  }
 }
 
 resource "hcloud_load_balancer_service" "management_lb_register_service" {
@@ -57,6 +79,14 @@ resource "hcloud_load_balancer_service" "management_lb_register_service" {
   listen_port      = 9345
   destination_port = 9345
   depends_on       = [hcloud_load_balancer_target.initial_master_target]
+
+  health_check {
+    protocol = "tcp"
+    port     = 9345
+    interval = 15
+    timeout  = 10
+    retries  = 3
+  }
 }
 
 resource "hcloud_load_balancer_service" "management_lb_service" {
@@ -66,4 +96,12 @@ resource "hcloud_load_balancer_service" "management_lb_service" {
   listen_port      = tonumber(each.value)
   destination_port = tonumber(each.value)
   depends_on       = [hcloud_load_balancer_target.initial_master_target]
+
+  health_check {
+    protocol = "tcp"
+    port     = tonumber(each.value)
+    interval = 15
+    timeout  = 10
+    retries  = 3
+  }
 }

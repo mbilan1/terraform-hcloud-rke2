@@ -1,4 +1,4 @@
-resource "local_file" "name" {
+resource "local_file" "ssh_private_key" {
   count           = var.generate_ssh_key_file ? 1 : 0
   content         = tls_private_key.machines.private_key_openssh
   filename        = "rancher-host-key"
