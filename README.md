@@ -1,10 +1,43 @@
 <div align="center" width="100%">
     <h2>hcloud rke2 module</h2>
     <p>Simple and fast creation of a rke2 Kubernetes cluster on Hetzner Cloud.</p>
-    <a target="_blank" href="https://github.com/wenzel-felix/terraform-hcloud-rke2/stargazers"><img src="https://img.shields.io/github/stars/wenzel-felix/terraform-hcloud-rke2" /></a>
-    <a target="_blank" href="https://github.com/wenzel-felix/terraform-hcloud-rke2/releases"><img src="https://img.shields.io/github/v/release/wenzel-felix/terraform-hcloud-rke2?display_name=tag" /></a>
-    <a target="_blank" href="https://github.com/wenzel-felix/terraform-hcloud-rke2/commits/master"><img src="https://img.shields.io/github/last-commit/wenzel-felix/terraform-hcloud-rke2" /></a>
+    <a target="_blank" href="https://github.com/mbilan1/terraform-hcloud-rke2/releases"><img src="https://img.shields.io/github/v/release/mbilan1/terraform-hcloud-rke2?display_name=tag" /></a>
+    <a target="_blank" href="https://github.com/mbilan1/terraform-hcloud-rke2/commits/main"><img src="https://img.shields.io/github/last-commit/mbilan1/terraform-hcloud-rke2" /></a>
 </div>
+
+> **This is a fork of [wenzel-felix/terraform-hcloud-rke2](https://github.com/wenzel-felix/terraform-hcloud-rke2).**
+> The original module is available on the [Terraform Registry](https://registry.terraform.io/modules/wenzel-felix/rke2/hcloud/latest).
+
+## Changes from upstream
+
+This fork includes the following improvements over the original module:
+
+### Reliability
+- **Cluster readiness check** — replaced `time_sleep` with a two-phase `null_resource` that polls `/readyz` and waits for all nodes to report `Ready` status before deploying workloads
+- **Firewall attachment fix** — removed `hcloud_firewall_attachment` (only one per firewall allowed by the provider); firewall is now bound via `firewall_ids` on each `hcloud_server`, fixing `tofu destroy` race conditions
+- **cert-manager helm fix** — use `installCRDs` (correct for v1.13.x), increased timeout to 600s and `startupapicheck.timeout` to 5m
+- **Load balancer health checks** — HTTP `/healthz` for K8s API (6443), TCP for SSH (22), RKE2 registration (9345), and custom ports
+
+### Security
+- **Firewall rules** — proper ingress rules for all required ports; internal-only access for etcd, kubelet, RKE2 registration, and NodePort ranges
+- **Sensitive variables** — `sensitive = true` on `hetzner_token`, `cloudflare_token`, and all credential outputs
+- **OTel collector hardening** — pinned image by digest, `runAsNonRoot`, `readOnlyRootFilesystem`, `drop ALL` capabilities, `seccompProfile: RuntimeDefault`, resource requests/limits, liveness/readiness probes
+
+### Bug fixes
+- **network.tf** — subnet was incorrectly using `network_address` instead of `subnet_address`
+- **rke-master.sh.tpl** — fixed `kube-proxy` → `kube-proxy-arg`, OIDC condition `!= null` → `!= ""`, added `set -euo pipefail`
+- **rke-worker.sh.tpl** — added `set -euo pipefail` and error handling
+- **ssh.tf** — renamed `local_file "name"` → `"ssh_private_key"`
+- **OIDC ingress** — moved from `default` to `kube-system` namespace, fixed count condition to use bool type
+
+### Code quality
+- Added `required_version >= 1.5.0` and declared all implicit providers with version constraints
+- Added input validations: domain non-empty, `master_node_count` prevents split-brain (must be 1 or >= 3)
+- Added descriptions to all outputs
+- Updated defaults: `ubuntu-24.04`, `cx23`, three-location spread (`hel1`, `nbg1`, `fsn1`)
+- Normalized all files to Unix (LF) line endings
+- Clean pass: `tofu fmt`, `tofu validate`, `tflint`
+- Security aligned with Trivy, Checkov, and KICS best practices
 
 ## ✨ Features
 
