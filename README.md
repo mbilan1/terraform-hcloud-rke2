@@ -5,6 +5,9 @@
     <a target="_blank" href="https://github.com/mbilan1/terraform-hcloud-rke2/commits/main"><img src="https://img.shields.io/github/last-commit/mbilan1/terraform-hcloud-rke2" /></a>
 </div>
 
+> [!WARNING]
+> **This module is experimental and NOT production-ready.** APIs, variable names, and default values may change without notice between releases. Use at your own risk.
+
 > **This is a fork of [wenzel-felix/terraform-hcloud-rke2](https://github.com/wenzel-felix/terraform-hcloud-rke2).**
 > The original module is available on the [Terraform Registry](https://registry.terraform.io/modules/wenzel-felix/rke2/hcloud/latest).
 
