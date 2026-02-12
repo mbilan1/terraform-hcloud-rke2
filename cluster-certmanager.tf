@@ -15,14 +15,14 @@ resource "kubernetes_namespace_v1" "cert_manager" {
 
 resource "kubernetes_secret_v1" "cert_manager" {
   depends_on = [kubernetes_namespace_v1.cert_manager]
-  count      = var.cluster_configuration.cert_manager.preinstall ? 1 : 0
+  count      = var.cluster_configuration.cert_manager.preinstall && var.aws_access_key != "" ? 1 : 0
   metadata {
-    name      = "cloudflare-api-token-secret"
+    name      = "route53-credentials-secret"
     namespace = "cert-manager"
   }
 
   data = {
-    api-token = var.cloudflare_token
+    secret-access-key = var.aws_secret_key
   }
 
   lifecycle {
@@ -47,7 +47,11 @@ resource "helm_release" "cert_manager" {
 
   set = [
     {
-      name  = "installCRDs"
+      name  = "crds.enabled"
+      value = "true"
+    },
+    {
+      name  = "crds.keep"
       value = "true"
     },
     {
@@ -64,18 +68,29 @@ resource "kubectl_manifest" "cert_manager_issuer" {
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
-  name: cloudflare
+  name: ${var.cluster_issuer_name}
 spec:
   acme:
     email: ${var.letsencrypt_issuer}
     server: https://acme-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
-      name: letsencrypt-prod
+      name: ${var.cluster_issuer_name}
     solvers:
+%{if var.route53_zone_id != ""}
     - dns01:
-        cloudflare:
-          apiTokenSecretRef:
-            name: cloudflare-api-token-secret
-            key: api-token
+        route53:
+          region: ${var.aws_region}
+          hostedZoneID: ${var.route53_zone_id}
+%{if var.aws_access_key != ""}
+          accessKeyID: ${var.aws_access_key}
+          secretAccessKeySecretRef:
+            name: route53-credentials-secret
+            key: secret-access-key
+%{endif}
+%{else}
+    - http01:
+        ingress:
+          class: nginx
+%{endif}
 YAML
 }

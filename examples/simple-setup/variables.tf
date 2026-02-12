@@ -3,22 +3,16 @@ variable "hetzner_token" {
   description = "Hetzner Cloud API Token"
 }
 
-variable "cloudflare_token" {
+variable "route53_zone_id" {
   type        = string
   default     = ""
-  description = "The Cloudflare API token. (Required if create_cloudflare_dns_record is true.)"
+  description = "The Route53 hosted zone ID for DNS records."
 }
 
-variable "cloudflare_zone_id" {
+variable "aws_region" {
   type        = string
-  default     = ""
-  description = "The Cloudflare zone id. (Required if create_cloudflare_dns_record is true.)"
-}
-
-variable "cloudflare_domain" {
-  type        = string
-  default     = ""
-  description = "The Cloudflare domain. (Required if create_cloudflare_dns_record is true.)"
+  default     = "eu-central-1"
+  description = "AWS region for Route53 provider."
 }
 
 variable "letsencrypt_issuer" {

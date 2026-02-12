@@ -87,6 +87,7 @@ resource "hcloud_server" "master" {
     INSTALL_RKE2_VERSION = var.rke2_version
     RKE2_CNI             = var.rke2_cni
     OIDC_URL             = "https://${local.oidc_issuer_subdomain}"
+    DISABLE_INGRESS      = var.harmony.enabled
   })
 
   network {
@@ -126,6 +127,7 @@ resource "hcloud_server" "additional_masters" {
     INSTALL_RKE2_VERSION = var.rke2_version
     RKE2_CNI             = var.rke2_cni
     OIDC_URL             = "https://${local.oidc_issuer_subdomain}"
+    DISABLE_INGRESS      = var.harmony.enabled
   })
 
   network {

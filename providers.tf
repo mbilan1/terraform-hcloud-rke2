@@ -10,9 +10,9 @@ terraform {
       source  = "tenstad/remote"
       version = "~> 0.2"
     }
-    cloudflare = {
-      source  = "cloudflare/cloudflare"
-      version = "~> 4.3"
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.0"
     }
     kubectl = {
       source  = "gavinbunney/kubectl"
@@ -57,8 +57,17 @@ provider "hcloud" {
   token = var.hetzner_token
 }
 
-provider "cloudflare" {
-  api_token = var.cloudflare_token
+provider "aws" {
+  region = var.aws_region
+
+  # When Route53 is not used, supply dummy credentials so the provider
+  # initialises without requiring real AWS access.
+  access_key = var.route53_zone_id == "" && var.aws_access_key == "" ? "unused" : var.aws_access_key
+  secret_key = var.route53_zone_id == "" && var.aws_secret_key == "" ? "unused" : var.aws_secret_key
+
+  skip_credentials_validation = var.route53_zone_id == ""
+  skip_requesting_account_id  = var.route53_zone_id == ""
+  skip_metadata_api_check     = var.route53_zone_id == ""
 }
 
 provider "helm" {

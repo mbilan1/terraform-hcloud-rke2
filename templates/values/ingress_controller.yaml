@@ -7,7 +7,10 @@ spec:
   valuesContent: |-
     controller:
       config:
+        proxy-body-size: "${proxy_body_size}"
+%{ if enable_modsecurity ~}
         enable-modsecurity: "true"
         enable-owasp-modsecurity-crs: "true"
         modsecurity-snippet: |-
           SecRuleEngine On
+%{ endif ~}

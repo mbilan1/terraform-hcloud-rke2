@@ -22,6 +22,10 @@ tls-san:
 cloud-provider-name: external
 cni: ${RKE2_CNI}
 node-ip: $NODE_IP
+%{ if DISABLE_INGRESS }
+disable:
+  - rke2-ingress-nginx
+%{ endif }
 %{ if EXPOSE_METRICS }
 etcd-expose-metrics: true
 kube-controller-manager-arg:

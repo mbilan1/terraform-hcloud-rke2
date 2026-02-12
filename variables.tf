@@ -132,7 +132,7 @@ variable "cluster_configuration" {
       preinstall = optional(bool, true)
     }), {})
     monitoring_stack = optional(object({
-      kube_prom_stack_version = optional(string, "45.25.0")
+      kube_prom_stack_version = optional(string, "81.0.1")
       loki_stack_version      = optional(string, "2.9.10")
       preinstall              = optional(bool, false)
     }), {})
@@ -144,8 +144,14 @@ variable "cluster_configuration" {
       tempo_version = optional(string, "1.3.1")
       preinstall    = optional(bool, false)
     }), {})
+    hcloud_csi = optional(object({
+      version               = optional(string, "2.12.0")
+      preinstall            = optional(bool, true)
+      default_storage_class = optional(bool, true)
+      reclaim_policy        = optional(string, "Delete")
+    }), {})
     cert_manager = optional(object({
-      version                         = optional(string, "1.13.3")
+      version                         = optional(string, "v1.19.3")
       preinstall                      = optional(bool, true)
       use_for_preinstalled_components = optional(bool, true)
     }), {})
@@ -155,6 +161,11 @@ variable "cluster_configuration" {
   })
   default     = {}
   description = "Define the cluster configuration. (See README.md for more information.)"
+
+  validation {
+    condition     = contains(["Delete", "Retain"], var.cluster_configuration.hcloud_csi.reclaim_policy)
+    error_message = "hcloud_csi.reclaim_policy must be either 'Delete' or 'Retain'."
+  }
 
   validation {
     condition     = (var.cluster_configuration.monitoring_stack.preinstall == true && var.cluster_configuration.istio_service_mesh.preinstall == true) || var.cluster_configuration.tracing_stack.preinstall == false
@@ -174,29 +185,54 @@ variable "expose_kubernetes_metrics" {
   description = "Defines whether the kubernetes metrics (scheduler, etcd, ...) should be exposed on the nodes."
 }
 
-variable "create_cloudflare_dns_record" {
+variable "create_dns_record" {
   type        = bool
   default     = false
-  description = "Defines whether a cloudflare dns record should be created for the cluster nodes."
+  description = "Defines whether a Route53 DNS record should be created for the cluster load balancer."
 }
 
-variable "cloudflare_token" {
+variable "aws_region" {
   type        = string
-  default     = "0000000000000000000000000000000000000000"
-  sensitive   = true
-  description = "The Cloudflare API token. (Required if create_cloudflare_dns_record is true.)"
+  default     = "eu-central-1"
+  description = "AWS region for the Route53 provider."
 }
 
-variable "cloudflare_zone_id" {
+variable "route53_zone_id" {
   type        = string
   default     = ""
-  description = "The Cloudflare zone id. (Required if create_cloudflare_dns_record is true.)"
+  description = "The Route53 hosted zone ID. (Required if create_dns_record is true.)"
+}
+
+variable "aws_access_key" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "AWS access key for Route53 and cert-manager DNS-01 solver. If empty, uses default AWS credentials chain."
+}
+
+variable "aws_secret_key" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "AWS secret key for Route53 and cert-manager DNS-01 solver. If empty, uses default AWS credentials chain."
 }
 
 variable "letsencrypt_issuer" {
   type        = string
   default     = ""
   description = "The email to send notifications regarding let's encrypt."
+}
+
+variable "cluster_issuer_name" {
+  type        = string
+  default     = "harmony-letsencrypt-global"
+  description = "Name of the cert-manager ClusterIssuer. Defaults to 'harmony-letsencrypt-global' for compatibility with openedx-k8s-harmony Tutor plugin (hardcoded in k8s-services patch)."
+}
+
+variable "nginx_ingress_proxy_body_size" {
+  type        = string
+  default     = "100m"
+  description = "Default max request body size for the nginx ingress controller. Set to 100m for Harmony/Open edX compatibility (course uploads)."
 }
 
 variable "enable_auto_os_updates" {
@@ -221,6 +257,21 @@ variable "gateway_api_version" {
   type        = string
   default     = "v0.7.1"
   description = "The version of the gateway api to install."
+}
+
+variable "harmony" {
+  type = object({
+    enabled      = optional(bool, true)
+    version      = optional(string, "")
+    extra_values = optional(list(string), [])
+  })
+  default     = {}
+  description = <<-EOT
+    Harmony chart (openedx-k8s-harmony) integration.
+    - enabled: Deploy Harmony chart via Helm. Disables RKE2 built-in ingress-nginx and routes HTTP/HTTPS through the management LB.
+    - version: Chart version to install. Empty string means latest.
+    - extra_values: Additional values.yaml content (list of YAML strings) merged after infrastructure defaults.
+  EOT
 }
 
 variable "expose_oidc_issuer_url" {

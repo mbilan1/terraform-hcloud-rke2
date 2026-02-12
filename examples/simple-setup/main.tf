@@ -6,22 +6,17 @@ module "rke2" {
   generate_ssh_key_file = true
   rke2_version          = "v1.27.1+rke2r1"
   cluster_configuration = {
-    monitoring_stack = {
-      preinstall = true
-    }
-    istio_service_mesh = {
-      preinstall = true
-    }
-    tracing_stack = {
-      preinstall = true
-    }
     hcloud_controller = {
       preinstall = true
     }
+    hcloud_csi = {
+      preinstall            = true
+      default_storage_class = true
+    }
   }
-  create_cloudflare_dns_record   = true
-  cloudflare_zone_id             = var.cloudflare_zone_id
-  cloudflare_token               = var.cloudflare_token
+  create_dns_record              = true
+  route53_zone_id                = var.route53_zone_id
+  aws_region                     = var.aws_region
   letsencrypt_issuer             = var.letsencrypt_issuer
   enable_nginx_modsecurity_waf   = true
   enable_auto_kubernetes_updates = true

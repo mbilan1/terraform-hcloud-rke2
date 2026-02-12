@@ -49,7 +49,9 @@ resource "kubernetes_ingress_v1" "monitoring_ingress" {
     name      = "monitoring-ingress"
     namespace = "monitoring"
     annotations = {
-      "cert-manager.io/cluster-issuer" = "cloudflare"
+      "cert-manager.io/cluster-issuer"              = var.cluster_issuer_name
+      "nginx.ingress.kubernetes.io/proxy-body-size" = var.nginx_ingress_proxy_body_size
+      "nginx.ingress.kubernetes.io/ssl-redirect"    = "true"
     }
   }
 

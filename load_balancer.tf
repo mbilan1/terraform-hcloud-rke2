@@ -52,7 +52,7 @@ resource "hcloud_load_balancer_service" "management_lb_k8s_service" {
     http {
       path         = "/healthz"
       tls          = true
-      status_codes = ["200"]
+      status_codes = ["200", "401"]
     }
   }
 }
@@ -83,6 +83,52 @@ resource "hcloud_load_balancer_service" "management_lb_register_service" {
   health_check {
     protocol = "tcp"
     port     = 9345
+    interval = 15
+    timeout  = 10
+    retries  = 3
+  }
+}
+
+# Worker targets — needed for HTTP/HTTPS traffic routing to ingress-nginx DaemonSet
+resource "hcloud_load_balancer_target" "worker_targets" {
+  count            = var.harmony.enabled ? var.worker_node_count : 0
+  type             = "server"
+  load_balancer_id = hcloud_load_balancer.management_lb.id
+  server_id        = hcloud_server.worker[count.index].id
+  use_private_ip   = true
+  depends_on = [
+    hcloud_load_balancer_network.management_lb_network_registration
+  ]
+}
+
+resource "hcloud_load_balancer_service" "management_lb_http_service" {
+  count            = var.harmony.enabled ? 1 : 0
+  load_balancer_id = hcloud_load_balancer.management_lb.id
+  protocol         = "tcp"
+  listen_port      = 80
+  destination_port = 80
+  depends_on       = [hcloud_load_balancer_target.initial_master_target]
+
+  health_check {
+    protocol = "tcp"
+    port     = 80
+    interval = 15
+    timeout  = 10
+    retries  = 3
+  }
+}
+
+resource "hcloud_load_balancer_service" "management_lb_https_service" {
+  count            = var.harmony.enabled ? 1 : 0
+  load_balancer_id = hcloud_load_balancer.management_lb.id
+  protocol         = "tcp"
+  listen_port      = 443
+  destination_port = 443
+  depends_on       = [hcloud_load_balancer_target.initial_master_target]
+
+  health_check {
+    protocol = "tcp"
+    port     = 443
     interval = 15
     timeout  = 10
     retries  = 3

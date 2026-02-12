@@ -51,3 +51,13 @@ output "cluster_worker_nodes_ipv4" {
   description = "The public IPv4 addresses of all worker nodes"
   value       = hcloud_server.worker[*].ipv4_address
 }
+
+output "cluster_issuer_name" {
+  description = "The name of the cert-manager ClusterIssuer created by this module"
+  value       = var.cluster_issuer_name
+}
+
+output "harmony_infrastructure_values" {
+  description = "Infrastructure-specific Harmony values applied by this module (for reference only — already merged into the Helm release)"
+  value       = yamlencode(local.harmony_infrastructure_values)
+}
