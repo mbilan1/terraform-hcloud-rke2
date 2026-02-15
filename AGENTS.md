@@ -217,24 +217,19 @@ Actual deployments that **use** this module live in `examples/` or in separate r
 | `docs/` | Architecture docs — **READ `ARCHITECTURE.md` BEFORE ANY WORK** |
 | `examples/` | Example deployments (`simple-setup/`, `minimal/`, `rancher-setup/`) |
 | `tests/` | Unit test files (`*.tftest.hcl`) — see [tests/README.md](tests/README.md) |
-| `.github/workflows/` | CI workflow files (12 workflows) — see below |
+| `.github/workflows/` | CI workflow files (9 workflows) — see below |
 
 ### CI Workflow Files (.github/workflows/)
 
-All workflow files follow the naming convention `{category}-{tool}.yml`:
+Consolidated workflow structure for efficiency:
 
-| File | Gate | Tool | Trigger |
-|------|:----:|------|---------|
-| `lint-fmt.yml` | 0a | `tofu fmt -check` | push + PR |
-| `lint-validate.yml` | 0a | `tofu validate` | push + PR |
-| `lint-tflint.yml` | 0a | `tflint` | push + PR |
+| File | Gate | Tools | Trigger |
+|------|:----:|-------|---------|
+| `lint.yml` | 0a | `tofu fmt`, `tofu validate`, `tflint` (consolidated) | push + PR |
 | `sast-checkov.yml` | 0b | Checkov | push + PR |
 | `sast-kics.yml` | 0b | KICS | push + PR |
 | `sast-tfsec.yml` | 0b | tfsec | push + PR |
-| `unit-variables.yml` | 1 | `tofu test -filter=tests/variables.tftest.hcl` | push + PR |
-| `unit-guardrails.yml` | 1 | `tofu test -filter=tests/guardrails.tftest.hcl` | push + PR |
-| `unit-conditionals.yml` | 1 | `tofu test -filter=tests/conditional_logic.tftest.hcl` | push + PR |
-| `unit-examples.yml` | 1 | `tofu test -filter=tests/examples.tftest.hcl` | push + PR |
+| `unit-tests.yml` | 1 | All unit tests via matrix (consolidated) | push + PR |
 | `integration-plan.yml` | 2 | `tofu plan` (examples/minimal/) | PR + manual |
 | `e2e-apply.yml` | 3 | `tofu apply` + smoke + `tofu destroy` | Manual only |
 

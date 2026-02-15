@@ -1,0 +1,38 @@
+# Badge: Unit Tests
+# DRY: Consolidated unit test workflow (replaces unit-variables.yml, unit-guardrails.yml, unit-conditionals.yml, unit-examples.yml)
+name: "Unit Tests"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: tofu test (${{ matrix.test-name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - test-name: variables
+            test-file: tests/variables.tftest.hcl
+            badge-name: "Unit: variables"
+          - test-name: guardrails
+            test-file: tests/guardrails.tftest.hcl
+            badge-name: "Unit: guardrails"
+          - test-name: conditional logic
+            test-file: tests/conditional_logic.tftest.hcl
+            badge-name: "Unit: conditionals"
+          - test-name: examples
+            test-file: tests/examples.tftest.hcl
+            badge-name: "Unit: examples"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: opentofu/setup-opentofu@9d84900f3238fab8cd84ce47d658d25dd008be2f # v1.0.8
+      - run: tofu init -backend=false
+      - run: tofu test -filter=${{ matrix.test-file }} -no-color

@@ -16,39 +16,23 @@ The Harmony Tutor plugin (`k8s_harmony`) handles Ingress creation, TLS settings,
 
 ## Prerequisites
 
-- [OpenTofu](https://opentofu.org/) or Terraform >= 1.5
-- Hetzner Cloud account + API token
+In addition to the [common prerequisites](../../docs/COMMON_DEPLOYMENT.md#prerequisites):
 - AWS account with a Route53 hosted zone
 - [Tutor](https://docs.tutor.edly.io/) >= 18
 - Python 3.12+ (for Tutor)
 
 ## Quick start
 
-### 1. Configure
+### 1-2. Deploy Infrastructure
+
+Follow steps 1-5 in [../../docs/COMMON_DEPLOYMENT.md](../../docs/COMMON_DEPLOYMENT.md).
+
+### 3. Verify Harmony Components
 
 ```bash
-cd examples/openedx-tutor
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your real values
-```
-
-### 2. Deploy infrastructure
-
-```bash
-tofu init
-tofu apply
-```
-
-### 3. Get kubeconfig
-
-```bash
-tofu output -raw kubeconfig > ~/.kube/config
-chmod 600 ~/.kube/config
-
-# Verify
-kubectl get nodes
 kubectl get pods -n harmony
 ```
+
 
 ### 4. Install Tutor with the Harmony plugin
 
@@ -122,6 +106,4 @@ The wildcard covers subdomains: `studio.*` (CMS), `apps.*` (MFE), `preview.*` (P
 
 ## Cleanup
 
-```bash
-tofu destroy
-```
+See [../../docs/COMMON_DEPLOYMENT.md#cleanup](../../docs/COMMON_DEPLOYMENT.md#cleanup) for cleanup instructions.

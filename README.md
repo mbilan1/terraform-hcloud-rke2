@@ -10,18 +10,13 @@
 **Quality Gate Results:**
 
 <!-- Lint -->
-[![Lint: fmt](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint-fmt.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint-fmt.yml)
-[![Lint: validate](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint-validate.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint-validate.yml)
-[![Lint: tflint](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint-tflint.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint-tflint.yml)
+[![Lint](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint.yml)
 <!-- SAST -->
 [![SAST: Checkov](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/sast-checkov.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/sast-checkov.yml)
 [![SAST: KICS](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/sast-kics.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/sast-kics.yml)
 [![SAST: tfsec](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/sast-tfsec.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/sast-tfsec.yml)
 <!-- Unit -->
-[![Unit: variables](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-variables.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-variables.yml)
-[![Unit: guardrails](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-guardrails.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-guardrails.yml)
-[![Unit: conditionals](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-conditionals.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-conditionals.yml)
-[![Unit: examples](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-examples.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-examples.yml)
+[![Unit Tests](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-tests.yml)
 <!-- Integration -->
 [![Integration: plan](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/integration-plan.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/integration-plan.yml)
 <!-- E2E -->
@@ -281,13 +276,13 @@ Gate 3 ─ E2E                  tofu apply + smoke tests + destroy (manual only)
 
 ### Workflow Architecture
 
-Every tool runs in its own GitHub Actions workflow file with its own badge:
+Consolidated workflow structure for maintainability:
 
 | Gate | Category | Workflows | Trigger | Blocking |
 |:----:|----------|-----------|---------|:--------:|
-| 0a | Lint | `lint-fmt.yml`, `lint-validate.yml`, `lint-tflint.yml` | push + PR | Yes |
+| 0a | Lint | `lint.yml` (fmt, validate, tflint) | push + PR | Yes |
 | 0b | SAST | `sast-checkov.yml`, `sast-kics.yml`, `sast-tfsec.yml` | push + PR | Checkov/KICS: Yes, tfsec: best-effort |
-| 1 | Unit | `unit-variables.yml`, `unit-guardrails.yml`, `unit-conditionals.yml`, `unit-examples.yml` | push + PR | Yes |
+| 1 | Unit | `unit-tests.yml` (matrix: variables, guardrails, conditionals, examples) | push + PR | Yes |
 | 2 | Integration | `integration-plan.yml` | PR + manual | No (requires cloud secrets) |
 | 3 | E2E | `e2e-apply.yml` | Manual only | No (requires cost confirmation) |
 

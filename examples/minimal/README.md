@@ -2,15 +2,9 @@
 
 Smallest viable cluster configuration — 1 master, 0 workers, all defaults.
 
-## Usage
+## Prerequisites & Deployment
 
-```bash
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your values
-tofu init
-tofu plan
-tofu apply
-```
+See [../../docs/COMMON_DEPLOYMENT.md](../../docs/COMMON_DEPLOYMENT.md) for standard deployment steps.
 
 ## Required Variables
 
