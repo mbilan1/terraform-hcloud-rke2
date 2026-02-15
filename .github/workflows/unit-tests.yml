@@ -1,12 +1,16 @@
 # ──────────────────────────────────────────────────────────────────────────────
-# SAST: tfsec
+# Unit: tofu test
 #
-# Static security analysis. Best-effort — parser may fail on newer OpenTofu
-# constructs (top-level check blocks). Kept as non-blocking signal.
-# Badge: SAST: tfsec
+# 63 tests via `tofu test` with mock_provider:
+#   Variable validations & cross-variable guardrails
+#   Conditional logic & resource count assertions
+#   Example configuration patterns
+#
+# Offline, zero-cost, ~3 seconds. See tests/README.md for full inventory.
+# Badge: Unit: tofu test
 # ──────────────────────────────────────────────────────────────────────────────
 
-name: "SAST: tfsec"
+name: "Unit: tofu test"
 
 on:
   push:
@@ -18,21 +22,19 @@ permissions:
   contents: read
 
 jobs:
-  tfsec:
-    name: tfsec scan
+  unit-tests:
+    name: tofu test (63 tests)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run tfsec
-        # tfsec parser may fail on newer Terraform/OpenTofu constructs
-        # (e.g. top-level check blocks). Keep this as best-effort signal.
-        continue-on-error: true
-        uses: aquasecurity/tfsec-action@v1.0.3
-        with:
-          working_directory: .
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          soft_fail: true
-          additional_args: --minimum-severity HIGH --ignore-hcl-errors
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+
+      - name: Init (no backend)
+        run: tofu init -backend=false
+
+      - name: Run Unit Tests
+        run: tofu test -no-color

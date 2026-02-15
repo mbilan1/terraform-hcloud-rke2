@@ -1,0 +1,23 @@
+# Badge: Lint: tflint
+name: "Lint: tflint"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tflint:
+    name: tflint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+      - run: tofu init -backend=false
+      - uses: terraform-linters/setup-tflint@v4
+      - run: tflint --init
+      - run: tflint --format compact

@@ -1,4 +1,11 @@
-name: Checkov
+# ──────────────────────────────────────────────────────────────────────────────
+# SAST: Checkov
+#
+# IaC policy-as-code scanner — CIS benchmarks, best practices.
+# Badge: SAST: Checkov
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: "SAST: Checkov"
 
 on:
   push:

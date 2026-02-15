@@ -172,14 +172,29 @@ Tests that example configurations in `examples/` produce valid plans.
 
 ## CI Integration
 
-Tests run automatically in CI via `.github/workflows/lint.yml` — the `tofu-tests` job:
+Each CI command/tool has its own workflow file and badge in the root README (one badge = one tool):
 
-```yaml
-- name: Run OpenTofu Tests
-  run: tofu test
+```
+┌─────────────┐ ┌──────────────┐ ┌─────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌──────────────────┐
+│ lint-fmt.yml │ │lint-validate │ │lint-tflint  │ │ checkov.yml│ │  kics.yml  │ │ tfsec.yml  │ │ unit-tests.yml   │
+│ Gate 0a      │ │   .yml       │ │   .yml      │ │  Gate 0b   │ │  Gate 0b   │ │  Gate 0b   │ │  Gate 1-3        │
+│ tofu fmt     │ │ tofu validate│ │  tflint     │ │  IaC CIS   │ │  Checkmarx │ │  Security  │ │  tofu test       │
+│              │ │              │ │             │ │  policies  │ │  scanner   │ │  best-effort│ │  63 tests, ~3s   │
+└─────────────┘ └──────────────┘ └─────────────┘ └────────────┘ └────────────┘ └────────────┘ └──────────────────┘
+      🟢               🟢              🟢              🟢              🟢              🟡                 🟢
 ```
 
-The job is triggered on every push/PR when `*.tftest.hcl` files exist.
+| Badge label | File | Gate | Blocking |
+|-------------|------|:----:|:--------:|
+| Lint: fmt | `lint-fmt.yml` | 0a | Yes |
+| Lint: validate | `lint-validate.yml` | 0a | Yes |
+| Lint: tflint | `lint-tflint.yml` | 0a | Yes |
+| SAST: Checkov | `checkov.yml` | 0b | Yes |
+| SAST: KICS | `kics.yml` | 0b | Yes |
+| SAST: tfsec | `tfsec.yml` | 0b | No (best-effort) |
+| Unit: tofu test | `unit-tests.yml` | 1-3 | Yes |
+
+All workflows trigger on push to `main` and on pull requests to `main`.
 
 ## Mock Provider Workarounds
 

@@ -1,11 +1,16 @@
 # 🇺🇦 terraform-hcloud-rke2
 
-[![Lint (OpenTofu fmt/validate + TFLint)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint.yml)
-[![tfsec](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/tfsec.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/tfsec.yml)
-[![Checkov](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/checkov.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/checkov.yml)
-[![KICS](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/kics.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/kics.yml)
-
-Lint workflow includes: `tofu fmt -check -recursive`, `tofu validate -no-color`, and `tflint`.
+<!-- Quality Gate Badges — one badge per CI command/tool -->
+<!-- Lint -->
+[![Lint: fmt](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint-fmt.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint-fmt.yml)
+[![Lint: validate](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint-validate.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint-validate.yml)
+[![Lint: tflint](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint-tflint.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/lint-tflint.yml)
+<!-- SAST -->
+[![SAST: Checkov](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/checkov.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/checkov.yml)
+[![SAST: KICS](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/kics.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/kics.yml)
+[![SAST: tfsec](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/tfsec.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/tfsec.yml)
+<!-- Unit Tests -->
+[![Unit: tofu test](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-tests.yml)
 
 RKE2 Kubernetes cluster on Hetzner Cloud with Open edX (Harmony) integration.
 
