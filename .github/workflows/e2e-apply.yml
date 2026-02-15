@@ -1,0 +1,64 @@
+# Badge: E2E: apply
+#
+# DECISION: Manual trigger only + explicit confirmation input.
+# Why: Creates real Hetzner resources and costs money.
+#      Prevents accidental apply from PRs/pushes.
+#
+# NOTE: Runs apply → smoke → destroy in examples/minimal.
+# Destroy runs unconditionally (if: always()) to avoid orphaned resources.
+
+name: "E2E: apply"
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_cost:
+        description: "I understand this will provision real cloud resources and incur cost"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-apply
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: tofu apply + smoke + destroy (examples/minimal)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    if: ${{ inputs.confirm_cost == 'true' }}
+
+    defaults:
+      run:
+        working-directory: examples/minimal
+
+    env:
+      TF_IN_AUTOMATION: "1"
+      TF_VAR_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
+      TF_VAR_domain: ${{ vars.E2E_DOMAIN || 'e2e.example.com' }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+
+      - name: Init
+        run: tofu init -backend=false -input=false
+
+      - name: Apply
+        run: tofu apply -auto-approve -input=false -no-color
+
+      - name: Smoke (check outputs)
+        # NOTE: Minimal smoke — avoids needing kubectl on the runner.
+        run: tofu output -no-color control_plane_lb_ipv4
+
+      - name: Destroy (always)
+        if: always()
+        run: tofu destroy -auto-approve -input=false -no-color

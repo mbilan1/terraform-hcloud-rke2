@@ -187,8 +187,12 @@ Each CI command/tool has its own workflow file and badge in the root README (one
 | Unit: guardrails | `unit-guardrails.yml` | 1 | Yes |
 | Unit: conditionals | `unit-conditionals.yml` | 1 | Yes |
 | Unit: examples | `unit-examples.yml` | 1 | Yes |
+| Integration: plan | `integration-plan.yml` | 2 | No (requires secrets) |
+| E2E: apply | `e2e-apply.yml` | 3 | No (manual only) |
 
-All workflows trigger on push to `main` and on pull requests to `main`.
+Lint/SAST/Unit workflows trigger on push to `main` and on pull requests to `main`.
+Integration triggers on PRs + manual dispatch (skipped when secrets unavailable).
+E2E triggers on manual dispatch only (requires cost confirmation).
 
 ## Mock Provider Workarounds
 

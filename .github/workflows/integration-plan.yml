@@ -1,0 +1,44 @@
+# Badge: Integration: plan
+#
+# DECISION: Runs `tofu plan` against real provider APIs (no apply).
+# Why: Validates provider auth, schema compatibility, and module wiring
+#      beyond what mock_provider can catch.
+#
+# NOTE: Requires HCLOUD_TOKEN secret. Skipped when secrets are unavailable
+# (e.g. PRs from forks) to avoid false-red badges.
+
+name: "Integration: plan"
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: tofu plan (examples/minimal)
+    runs-on: ubuntu-latest
+
+    # WORKAROUND: Secrets are not available to workflows triggered from forks.
+    # Skipping keeps the workflow green instead of falsely failing.
+    if: ${{ vars.HAS_CLOUD_CREDENTIALS == 'true' }}
+
+    defaults:
+      run:
+        working-directory: examples/minimal
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+
+      - name: Init
+        run: tofu init -backend=false -input=false
+
+      - name: Plan (no apply)
+        env:
+          TF_VAR_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
+          TF_VAR_domain: "ci.example.com"
+        run: tofu plan -input=false -no-color

@@ -15,6 +15,10 @@
 [![Unit: guardrails](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-guardrails.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-guardrails.yml)
 [![Unit: conditionals](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-conditionals.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-conditionals.yml)
 [![Unit: examples](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-examples.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/unit-examples.yml)
+<!-- Integration -->
+[![Integration: plan](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/integration-plan.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/integration-plan.yml)
+<!-- E2E -->
+[![E2E: apply](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/e2e-apply.yml/badge.svg)](https://github.com/mbilan1/terraform-hcloud-rke2/actions/workflows/e2e-apply.yml)
 
 RKE2 Kubernetes cluster on Hetzner Cloud with Open edX (Harmony) integration.
 
