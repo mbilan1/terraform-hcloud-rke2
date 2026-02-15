@@ -6,6 +6,14 @@
 #
 # NOTE: Runs apply → smoke → destroy in examples/minimal.
 # Destroy runs unconditionally (if: always()) to avoid orphaned resources.
+#
+# SECURITY: State file contains sensitive data (SSH keys, kubeconfig, certs).
+# Mitigations:
+# 1. GitHub-hosted runner is ephemeral (destroyed after job)
+# 2. Explicit state shredding in always() cleanup step
+# 3. GitHub Environment 'e2e' can enforce required reviewers
+# 4. TF_LOG forced empty to prevent debug-level secret leaks
+# 5. No artifact upload — state never leaves the runner
 
 name: "E2E: apply"
 
@@ -33,6 +41,9 @@ jobs:
     name: tofu apply + smoke + destroy (examples/minimal)
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    # DECISION: GitHub Environment 'e2e' enables required reviewers and
+    # deployment protection rules. Create it in Settings → Environments.
+    environment: e2e
 
     if: ${{ inputs.confirm_cost == 'true' }}
 
@@ -44,6 +55,9 @@ jobs:
       TF_IN_AUTOMATION: "1"
       TF_VAR_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
       TF_VAR_domain: ${{ vars.E2E_DOMAIN || 'e2e.example.com' }}
+      # SECURITY: Force TF_LOG empty to prevent debug-level output from
+      # leaking sensitive resource attributes into workflow logs.
+      TF_LOG: ""
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -62,3 +76,13 @@ jobs:
       - name: Destroy (always)
         if: always()
         run: tofu destroy -auto-approve -input=false -no-color
+
+      - name: Shred state files (always)
+        if: always()
+        # SECURITY: State file contains SSH private keys, kubeconfig, certs.
+        # Shred ensures data is overwritten before runner cleanup.
+        # Belt-and-suspenders: runner is ephemeral, but defense in depth.
+        run: |
+          find . -name 'terraform.tfstate*' -exec shred -vfzu {} + 2>/dev/null || true
+          find . -name '*.tfplan' -exec shred -vfzu {} + 2>/dev/null || true
+          rm -rf .terraform/ 2>/dev/null || true

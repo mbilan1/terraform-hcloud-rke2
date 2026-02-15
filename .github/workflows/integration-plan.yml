@@ -41,4 +41,17 @@ jobs:
         env:
           TF_VAR_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
           TF_VAR_domain: "ci.example.com"
+          # SECURITY: Force TF_LOG empty to prevent debug-level output from
+          # leaking sensitive resource attributes into workflow logs.
+          TF_LOG: ""
         run: tofu plan -input=false -no-color
+
+      - name: Cleanup (always)
+        if: always()
+        working-directory: examples/minimal
+        # SECURITY: plan with -backend=false shouldn't create state,
+        # but defense in depth — remove any generated files.
+        run: |
+          find . -name 'terraform.tfstate*' -exec rm -f {} + 2>/dev/null || true
+          find . -name '*.tfplan' -exec rm -f {} + 2>/dev/null || true
+          rm -rf .terraform/ 2>/dev/null || true
