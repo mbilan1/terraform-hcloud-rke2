@@ -621,7 +621,7 @@ The module contains many deliberate compromises. Each is documented in code comm
 | master-0 replacement race | Bootstrap vs lifecycle | `INITIAL_MASTER` flag is set at server create-time via `user_data` and never re-evaluated (`ignore_changes = [user_data]`). A lifecycle guardrail now blocks destroy/replacement of `master-0` by default (`prevent_destroy = true`). Controlled replacement requires intentional code-level override during maintenance. |
 | ModSecurity + Harmony gap | Integration vs complexity | `enable_nginx_modsecurity_waf` has no effect when `harmony.enabled = true` (opt-in). Harmony deploys its own ingress-nginx without ModSecurity support. |
 | DNS requires Harmony | Simplicity vs composability | `create_dns_record = true` targets the ingress LB, so `harmony.enabled = true` is required. This is now guarded by an explicit preflight `check` with a clear error. |
-| RKE2 version unpinned | Freshness vs reproducibility | RKE2 is installed from the `stable` channel without version pinning. Different applies at different times may produce clusters with different K8s versions. |
+| RKE2 version pinned | Reproducibility vs freshness | RKE2 defaults to `v1.34.4+rke2r1` (latest in the Rancher-supported v1.34 line). Operators can override via `rke2_version` variable or set to `""` for latest stable. |
 | GitHub downloads at plan time | Simplicity vs reliability | System Upgrade Controller CRDs are downloaded from GitHub via `data.http` at `tofu plan`. If GitHub is unreachable, plan fails. Vendoring is planned. |
 
 ---

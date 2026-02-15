@@ -42,10 +42,16 @@ variable "cluster_name" {
   }
 }
 
+# DECISION: Pin RKE2 to v1.34.x (latest Rancher-supported line, ~8 months support remaining)
+# Why: Unpinned installs from 'stable' channel produce non-reproducible clusters.
+#      v1.34 is the newest line in the SUSE Rancher support matrix (v1.32–v1.34).
+#      v1.35 is not yet in the support matrix. v1.32 is at EOL (~Feb 2026).
+# See: https://www.suse.com/suse-rancher/support-matrix/
+# See: https://github.com/rancher/rke2/releases/tag/v1.34.4%2Brke2r1
 variable "rke2_version" {
   type        = string
-  default     = ""
-  description = "RKE2 version to install (e.g. 'v1.30.2+rke2r1'). Empty string installs the latest stable release."
+  default     = "v1.34.4+rke2r1"
+  description = "RKE2 version to install (e.g. 'v1.34.4+rke2r1'). Empty string installs the latest stable release."
 }
 
 variable "rke2_cni" {

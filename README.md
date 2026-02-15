@@ -1,8 +1,10 @@
 # 🇺🇦 terraform-hcloud-rke2
 
 ![OpenTofu](https://img.shields.io/badge/OpenTofu-%3E%3D%201.5.0-blue?logo=opentofu)
-![RKE2](https://img.shields.io/badge/RKE2-stable-blue?logo=rancher)
-![Helm](https://img.shields.io/badge/Helm-%3E%3D%202.11-blue?logo=helm)
+![RKE2](https://img.shields.io/badge/RKE2-v1.34.4-blue?logo=rancher)
+![hcloud](https://img.shields.io/badge/hcloud-~%3E%201.44-blue?logo=hetzner)
+![Harmony](https://img.shields.io/badge/Harmony-0.10.0-blue?logo=helm)
+![License](https://img.shields.io/github/license/mbilan1/terraform-hcloud-rke2)
 ![GitHub Release](https://img.shields.io/github/v/release/mbilan1/terraform-hcloud-rke2?include_prereleases&label=Release)
 
 **Quality Gate Results:**
