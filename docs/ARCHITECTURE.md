@@ -422,7 +422,8 @@ Ubuntu is the chosen operating system for the following reasons:
 
 5. **Stable release cadence** — follows upstream Kubernetes releases with a focus on stability over bleeding-edge features.
 
-> **Note**: The module installs RKE2 from the `stable` channel **without explicit version pinning**. This means different deploys at different times may produce clusters with different Kubernetes versions. If reproducibility is critical, pin the RKE2 version in `rke-master.sh.tpl` / `rke-worker.sh.tpl` or use the System Upgrade Controller to converge on a known version.
+> **Note**: The module **pins** RKE2 by default via the `rke2_version` input (currently `v1.34.x`).
+> This makes first deployments reproducible. If you explicitly set `rke2_version = ""`, the install script will use the upstream `stable` channel (less reproducible but sometimes desirable for quick trials).
 
 ---
 
@@ -618,7 +619,7 @@ The module contains many deliberate compromises. Each is documented in code comm
 | Route53 for DNS | EU sovereignty vs maturity | Cloudflare was removed for sovereignty reasons. Route53 is a temporary solution — will be replaced with a more aligned provider. |
 | `data.http` for CRD downloads | Reproducibility vs simplicity | Manifests are downloaded from GitHub at plan time by default. Operators can disable this path via `allow_remote_manifest_downloads = false` (requires disabling dependent features) for stricter/offline workflows. Vendoring into repo remains planned. |
 | `harmony.enabled` default `false` | Convention vs safety | Harmony remains opt-in by default so the module can serve both generic Kubernetes and Open edX use cases. Open edX deployments must enable it explicitly. |
-| master-0 replacement race | Bootstrap vs lifecycle | `INITIAL_MASTER` flag is set at server create-time via `user_data` and never re-evaluated (`ignore_changes = [user_data]`). A lifecycle guardrail now blocks destroy/replacement of `master-0` by default (`prevent_destroy = true`). Controlled replacement requires intentional code-level override during maintenance. |
+| master-0 replacement race | Bootstrap vs lifecycle | `INITIAL_MASTER` flag is set at server create-time via `user_data` and never re-evaluated (`ignore_changes = [user_data]`). **We intentionally do not hard-block destroy** in the module baseline to keep full lifecycle management possible (dev/test). For production, protect master-0 operationally (reviews, environment protections, targeted plans) and treat replacement as a deliberate maintenance event. |
 | ModSecurity + Harmony gap | Integration vs complexity | `enable_nginx_modsecurity_waf` has no effect when `harmony.enabled = true` (opt-in). Harmony deploys its own ingress-nginx without ModSecurity support. |
 | DNS requires Harmony | Simplicity vs composability | `create_dns_record = true` targets the ingress LB, so `harmony.enabled = true` is required. This is now guarded by an explicit preflight `check` with a clear error. |
 | RKE2 version pinned | Reproducibility vs freshness | RKE2 defaults to `v1.34.4+rke2r1` (latest in the Rancher-supported v1.34 line). Operators can override via `rke2_version` variable or set to `""` for latest stable. |

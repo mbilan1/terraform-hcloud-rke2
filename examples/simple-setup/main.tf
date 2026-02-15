@@ -4,7 +4,11 @@ module "rke2" {
   master_node_count     = 3
   worker_node_count     = 1
   generate_ssh_key_file = true
-  rke2_version          = "v1.27.1+rke2r1"
+
+  # NOTE: Keep RKE2 version default (pinned in the module) for a reproducible
+  # baseline. Override only when you intentionally test an older/newer line.
+  # rke2_version = "v1.34.4+rke2r1"
+
   cluster_configuration = {
     hcloud_controller = {
       preinstall = true
@@ -13,16 +17,21 @@ module "rke2" {
       preinstall            = true
       default_storage_class = true
     }
+    cert_manager = {
+      preinstall = true
+    }
   }
-  create_dns_record              = true
-  route53_zone_id                = var.route53_zone_id
-  aws_region                     = var.aws_region
-  letsencrypt_issuer             = var.letsencrypt_issuer
+
+  # DECISION: This example uses RKE2 built-in ingress-nginx (Harmony disabled)
+  # so ModSecurity WAF can be enabled. DNS automation is intentionally omitted
+  # because this module ties create_dns_record to Harmony's ingress LB.
+  create_dns_record = false
+
+  domain             = var.domain
+  letsencrypt_issuer = var.letsencrypt_issuer
+
   enable_nginx_modsecurity_waf   = true
   enable_auto_kubernetes_updates = true
-  preinstall_gateway_api_crds    = true
-  domain                         = "hetznerdoesnot.work"
-  expose_oidc_issuer_url         = true
 
   # Security: restrict SSH and K8s API access in production
   # ssh_allowed_cidrs    = ["YOUR_IP/32"] # Restrict SSH to your IP

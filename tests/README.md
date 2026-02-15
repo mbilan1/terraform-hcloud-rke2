@@ -8,20 +8,17 @@ Unit tests for the `terraform-hcloud-rke2` module using OpenTofu's native `tofu 
 
 ```
                     ╱╲
-                   ╱  ╲          Gate 4: E2E (future)
-                  ╱ E2E╲         Real infra, Terratest, nightly, ~$0.50/run
+                   ╱  ╲          Gate 3: E2E (manual)
+                  ╱ E2E╲         Real infra, tofu apply + smoke + destroy
                  ╱──────╲
-                ╱        ╲       Gate 3: Example Validation
-               ╱ Examples ╲      tofu test on examples/ dirs, every PR
+                ╱        ╲       Gate 2: Integration
+               ╱  Plan    ╲      tofu plan (examples/minimal) with real providers
               ╱────────────╲
-             ╱              ╲    Gate 2: Conditional Logic
-            ╱  Conditionals  ╲   Resource counts, feature toggles, every PR
+             ╱              ╲    Gate 1: Unit Tests
+            ╱  63 unit tests ╲   tofu test + mock_provider, every PR, ~$0
            ╱──────────────────╲
-          ╱                    ╲  Gate 1: Variables & Guardrails
-         ╱  Vars + Guardrails   ╲ Input validation, cross-var checks, every PR
-        ╱────────────────────────╲
-       ╱                          ╲ Gate 0: Static Analysis (existing CI)
-      ╱  fmt · validate · tflint   ╲ checkov · tfsec · kics
+          ╱                    ╲  Gate 0: Static Analysis
+         ╱ fmt · validate ·     ╲ tflint · checkov · tfsec · kics
      ╱──────────────────────────────╲
 ```
 
@@ -37,12 +34,14 @@ Unit tests for the `terraform-hcloud-rke2` module using OpenTofu's native `tofu 
 | **Deterministic** | No network calls, no randomness, no timing — same result every run |
 | **Self-documenting** | Each `run` block has a UT-ID comment header with rationale |
 
-### Two-Layer Strategy
+### Test Strategy Layers
 
 | Layer | Tool | Trigger | Cost | Duration | What it catches |
 |-------|------|---------|:----:|:--------:|----------------|
-| **Unit** (current) | `tofu test` + `mock_provider` | Every PR | $0 | ~3s | Validation logic, guardrails, conditional branches, defaults |
-| **E2E** (future) | Terratest (Go) | Nightly / manual | ~$0.50 | ~15min | Real cloud resources, provisioner scripts, addon deployment |
+| **Static analysis** | `tofu fmt`, `tofu validate`, `tflint`, Checkov, KICS, tfsec | Every PR | $0 | ~seconds | Formatting/syntax issues, linting, IaC security findings |
+| **Unit** | `tofu test` + `mock_provider` | Every PR | $0 | ~3s | Validations, guardrails, conditional branches, defaults |
+| **Integration** | `tofu plan` (real providers) | PR + manual | $0 | ~minutes | Provider auth/schema wiring beyond mocks (no apply) |
+| **E2E** | GitHub Actions workflow `E2E: apply` | Manual only | ~$0.50/run | ~10–20min | Real infra provisioning, cloud-init, readiness flow (apply + smoke + destroy) |
 
 ### What This Test Suite Does NOT Cover
 

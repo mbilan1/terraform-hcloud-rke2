@@ -3,20 +3,14 @@ variable "hetzner_token" {
   description = "Hetzner Cloud API Token"
 }
 
-variable "route53_zone_id" {
+variable "domain" {
   type        = string
-  default     = ""
-  description = "The Route53 hosted zone ID for DNS records."
-}
-
-variable "aws_region" {
-  type        = string
-  default     = "eu-central-1"
-  description = "AWS region for Route53 provider."
+  default     = "example.com"
+  description = "Cluster base domain (used by cert-manager HTTP-01 issuer and ingress hosts)."
 }
 
 variable "letsencrypt_issuer" {
   type        = string
-  default     = ""
+  default     = "admin@example.com"
   description = "The email to send notifications regarding let's encrypt."
 }
