@@ -36,9 +36,9 @@ sed -i "s/__NODE_IP__/$NODE_IP/g" /etc/rancher/rke2/config.yaml
 #       (e.g., https://raw.githubusercontent.com/rancher/rke2/<commit>/install.sh)
 INSTALL_SCRIPT=$(mktemp)
 trap 'rm -f "$INSTALL_SCRIPT"' EXIT
-curl -sfL https://get.rke2.io -o "$INSTALL_SCRIPT" || { echo "Failed to download RKE2 installer"; exit 1; }
+curl -sfL https://get.rke2.io -o "$INSTALL_SCRIPT" || { echo "Failed to download RKE2 installer" >&2; exit 1; }
 chmod +x "$INSTALL_SCRIPT"
-INSTALL_RKE2_VERSION="${INSTALL_RKE2_VERSION}" "$INSTALL_SCRIPT" || { echo "Failed to install RKE2 server"; exit 1; }
+INSTALL_RKE2_VERSION="${INSTALL_RKE2_VERSION}" "$INSTALL_SCRIPT" || { echo "Failed to install RKE2 server" >&2; exit 1; }
 
 systemctl enable rke2-server.service
 systemctl start rke2-server.service
