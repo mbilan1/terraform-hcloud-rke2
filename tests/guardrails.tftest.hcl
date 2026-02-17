@@ -404,7 +404,10 @@ run "longhorn_and_csi_both_default_rejects" {
     }
   }
 
-  expect_failures = [check.longhorn_and_csi_default_sc_exclusivity]
+  expect_failures = [
+    check.longhorn_and_csi_default_sc_exclusivity,
+    check.longhorn_experimental_warning,
+  ]
 }
 
 run "longhorn_default_csi_not_default_passes" {
@@ -424,6 +427,9 @@ run "longhorn_default_csi_not_default_passes" {
       }
     }
   }
+
+  # NOTE: Longhorn experimental warning always fires when preinstall = true
+  expect_failures = [check.longhorn_experimental_warning]
 }
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -443,7 +449,10 @@ run "longhorn_experimental_warning_fires" {
     }
   }
 
-  expect_failures = [check.longhorn_experimental_warning]
+  expect_failures = [
+    check.longhorn_experimental_warning,
+    check.longhorn_and_csi_default_sc_exclusivity,
+  ]
 }
 
 run "longhorn_experimental_warning_does_not_fire_when_disabled" {
@@ -474,7 +483,11 @@ run "longhorn_backup_rejects_missing_s3" {
     }
   }
 
-  expect_failures = [check.longhorn_backup_requires_s3_config]
+  expect_failures = [
+    check.longhorn_backup_requires_s3_config,
+    check.longhorn_experimental_warning,
+    check.longhorn_and_csi_default_sc_exclusivity,
+  ]
 }
 
 run "longhorn_backup_passes_with_s3" {
@@ -494,7 +507,11 @@ run "longhorn_backup_passes_with_s3" {
   }
 
   # NOTE: This also expects the experimental warning (it always fires when enabled)
-  expect_failures = [check.longhorn_experimental_warning]
+  # NOTE: SC exclusivity fires because both longhorn and hcloud_csi default to default_storage_class = true
+  expect_failures = [
+    check.longhorn_experimental_warning,
+    check.longhorn_and_csi_default_sc_exclusivity,
+  ]
 }
 
 run "longhorn_backup_passes_without_target" {
@@ -512,7 +529,11 @@ run "longhorn_backup_passes_without_target" {
   }
 
   # NOTE: Experimental warning still fires
-  expect_failures = [check.longhorn_experimental_warning]
+  # NOTE: SC exclusivity fires because both longhorn and hcloud_csi default to default_storage_class = true
+  expect_failures = [
+    check.longhorn_experimental_warning,
+    check.longhorn_and_csi_default_sc_exclusivity,
+  ]
 }
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -537,6 +558,7 @@ run "longhorn_rejects_insufficient_workers" {
   expect_failures = [
     check.longhorn_minimum_workers,
     check.longhorn_experimental_warning,
+    check.longhorn_and_csi_default_sc_exclusivity,
   ]
 }
 
@@ -556,6 +578,10 @@ run "longhorn_passes_with_enough_workers" {
   }
 
   # Only the experimental warning should fire, not the minimum workers check
-  expect_failures = [check.longhorn_experimental_warning]
+  # NOTE: SC exclusivity fires because both longhorn and hcloud_csi default to default_storage_class = true
+  expect_failures = [
+    check.longhorn_experimental_warning,
+    check.longhorn_and_csi_default_sc_exclusivity,
+  ]
 }
 

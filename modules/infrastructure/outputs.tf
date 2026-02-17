@@ -97,3 +97,31 @@ output "cluster_ready" {
   description = "Dependency anchor — downstream modules should depend on this"
   value       = terraform_data.wait_for_cluster_ready.id
 }
+
+# --- Control-plane LB name (used in tests) ---
+
+output "control_plane_lb_name" {
+  description = "Name of the control-plane load balancer"
+  value       = hcloud_load_balancer.control_plane.name
+}
+
+# --- Diagnostic resource counts (for unit testing conditional logic) ---
+#
+# NOTE: These outputs expose conditional resource counts so that root-level
+# tests can verify feature toggles without accessing module internals.
+# OpenTofu test assertions can only reference module outputs, not internal
+# resources of child modules.
+output "_test_counts" {
+  description = "Resource counts for unit testing. Not part of the public API."
+  value = {
+    ingress_lb           = length(hcloud_load_balancer.ingress)
+    additional_masters   = length(hcloud_server.additional_masters)
+    masters              = length(hcloud_server.master)
+    workers              = length(hcloud_server.worker)
+    cp_ssh_service       = length(hcloud_load_balancer_service.cp_ssh)
+    ssh_key_file         = length(local_sensitive_file.ssh_private_key)
+    dns_record           = length(aws_route53_record.wildcard)
+    ingress_lb_targets   = length(hcloud_load_balancer_target.ingress_workers)
+    pre_upgrade_snapshot = length(terraform_data.pre_upgrade_snapshot)
+  }
+}

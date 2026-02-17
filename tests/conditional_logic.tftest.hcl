@@ -87,17 +87,17 @@ run "harmony_disabled_no_ingress_lb" {
   }
 
   assert {
-    condition     = length(module.infrastructure.hcloud_load_balancer.ingress) == 0
+    condition     = module.infrastructure._test_counts.ingress_lb == 0
     error_message = "Ingress LB should not be created when harmony is disabled."
   }
 
   assert {
-    condition     = length(module.addons.kubernetes_namespace_v1.harmony) == 0
+    condition     = module.addons._test_counts.harmony_namespace == 0
     error_message = "Harmony namespace should not be created when harmony is disabled."
   }
 
   assert {
-    condition     = length(module.addons.helm_release.harmony) == 0
+    condition     = module.addons._test_counts.harmony_release == 0
     error_message = "Harmony helm release should not be created when harmony is disabled."
   }
 }
@@ -118,17 +118,17 @@ run "harmony_enabled_creates_ingress_lb" {
   }
 
   assert {
-    condition     = length(module.infrastructure.hcloud_load_balancer.ingress) == 1
+    condition     = module.infrastructure._test_counts.ingress_lb == 1
     error_message = "Ingress LB must be created when harmony is enabled."
   }
 
   assert {
-    condition     = length(module.addons.kubernetes_namespace_v1.harmony) == 1
+    condition     = module.addons._test_counts.harmony_namespace == 1
     error_message = "Harmony namespace must be created when harmony is enabled."
   }
 
   assert {
-    condition     = length(module.addons.helm_release.harmony) == 1
+    condition     = module.addons._test_counts.harmony_release == 1
     error_message = "Harmony helm release must be created when harmony is enabled."
   }
 }
@@ -149,7 +149,7 @@ run "harmony_disables_builtin_ingress" {
   }
 
   assert {
-    condition     = length(module.addons.kubectl_manifest.ingress_configuration) == 0
+    condition     = module.addons._test_counts.ingress_config == 0
     error_message = "RKE2 built-in ingress HelmChartConfig must not exist when harmony is enabled."
   }
 }
@@ -169,7 +169,7 @@ run "harmony_disabled_uses_builtin_ingress" {
   }
 
   assert {
-    condition     = length(module.addons.kubectl_manifest.ingress_configuration) == 1
+    condition     = module.addons._test_counts.ingress_config == 1
     error_message = "RKE2 built-in ingress HelmChartConfig must exist when harmony is disabled."
   }
 }
@@ -187,12 +187,12 @@ run "single_master_no_additional" {
   }
 
   assert {
-    condition     = length(module.infrastructure.hcloud_server.additional_masters) == 0
+    condition     = module.infrastructure._test_counts.additional_masters == 0
     error_message = "No additional masters should be created when master_node_count = 1."
   }
 
   assert {
-    condition     = length(module.infrastructure.hcloud_server.master) == 1
+    condition     = module.infrastructure._test_counts.masters == 1
     error_message = "Exactly one bootstrap master must always be created."
   }
 }
@@ -210,7 +210,7 @@ run "ha_cluster_creates_additional_masters" {
   }
 
   assert {
-    condition     = length(module.infrastructure.hcloud_server.additional_masters) == 4
+    condition     = module.infrastructure._test_counts.additional_masters == 4
     error_message = "HA cluster with 5 masters should create 4 additional masters (1 bootstrap + 4)."
   }
 }
@@ -228,7 +228,7 @@ run "zero_workers" {
   }
 
   assert {
-    condition     = length(module.infrastructure.hcloud_server.worker) == 0
+    condition     = module.infrastructure._test_counts.workers == 0
     error_message = "No worker nodes should be created when worker_node_count = 0."
   }
 }
@@ -246,7 +246,7 @@ run "workers_correct_count" {
   }
 
   assert {
-    condition     = length(module.infrastructure.hcloud_server.worker) == 5
+    condition     = module.infrastructure._test_counts.workers == 5
     error_message = "Worker count must match worker_node_count."
   }
 }
@@ -263,7 +263,7 @@ run "ssh_on_lb_disabled_by_default" {
   }
 
   assert {
-    condition     = length(module.infrastructure.hcloud_load_balancer_service.cp_ssh) == 0
+    condition     = module.infrastructure._test_counts.cp_ssh_service == 0
     error_message = "SSH service on control-plane LB should not exist by default."
   }
 }
@@ -281,7 +281,7 @@ run "ssh_on_lb_enabled" {
   }
 
   assert {
-    condition     = length(module.infrastructure.hcloud_load_balancer_service.cp_ssh) == 1
+    condition     = module.infrastructure._test_counts.cp_ssh_service == 1
     error_message = "SSH service on control-plane LB must exist when enable_ssh_on_lb = true."
   }
 }
@@ -303,12 +303,12 @@ run "certmanager_disabled" {
   }
 
   assert {
-    condition     = length(module.addons.kubernetes_namespace_v1.cert_manager) == 0
+    condition     = module.addons._test_counts.cert_manager_namespace == 0
     error_message = "cert-manager namespace should not exist when preinstall = false."
   }
 
   assert {
-    condition     = length(module.addons.helm_release.cert_manager) == 0
+    condition     = module.addons._test_counts.cert_manager_release == 0
     error_message = "cert-manager helm release should not exist when preinstall = false."
   }
 }
@@ -325,12 +325,12 @@ run "certmanager_enabled_by_default" {
   }
 
   assert {
-    condition     = length(module.addons.kubernetes_namespace_v1.cert_manager) == 1
+    condition     = module.addons._test_counts.cert_manager_namespace == 1
     error_message = "cert-manager namespace must exist when preinstall = true (default)."
   }
 
   assert {
-    condition     = length(module.addons.helm_release.cert_manager) == 1
+    condition     = module.addons._test_counts.cert_manager_release == 1
     error_message = "cert-manager helm release must exist when preinstall = true (default)."
   }
 }
@@ -352,12 +352,12 @@ run "hccm_disabled" {
   }
 
   assert {
-    condition     = length(module.addons.kubernetes_secret_v1.hcloud_ccm) == 0
+    condition     = module.addons._test_counts.hccm_secret == 0
     error_message = "HCCM secret should not exist when preinstall = false."
   }
 
   assert {
-    condition     = length(module.addons.helm_release.hccm) == 0
+    condition     = module.addons._test_counts.hccm_release == 0
     error_message = "HCCM helm release should not exist when preinstall = false."
   }
 }
@@ -379,7 +379,7 @@ run "csi_disabled" {
   }
 
   assert {
-    condition     = length(module.addons.helm_release.hcloud_csi) == 0
+    condition     = module.addons._test_counts.csi_release == 0
     error_message = "CSI helm release should not exist when preinstall = false."
   }
 }
@@ -396,7 +396,7 @@ run "ssh_key_file_disabled_by_default" {
   }
 
   assert {
-    condition     = length(module.infrastructure.local_sensitive_file.ssh_private_key) == 0
+    condition     = module.infrastructure._test_counts.ssh_key_file == 0
     error_message = "SSH key file should not be generated by default."
   }
 }
@@ -414,7 +414,7 @@ run "ssh_key_file_enabled" {
   }
 
   assert {
-    condition     = length(module.infrastructure.local_sensitive_file.ssh_private_key) == 1
+    condition     = module.infrastructure._test_counts.ssh_key_file == 1
     error_message = "SSH key file must be generated when generate_ssh_key_file = true."
   }
 }
@@ -431,7 +431,7 @@ run "dns_disabled_by_default" {
   }
 
   assert {
-    condition     = length(module.infrastructure.aws_route53_record.wildcard) == 0
+    condition     = module.infrastructure._test_counts.dns_record == 0
     error_message = "Route53 record should not be created by default."
   }
 }
@@ -452,7 +452,7 @@ run "ingress_lb_targets_match_workers" {
   }
 
   assert {
-    condition     = length(module.infrastructure.hcloud_load_balancer_target.ingress_workers) == 4
+    condition     = module.infrastructure._test_counts.ingress_lb_targets == 4
     error_message = "Ingress LB worker targets must match worker_node_count."
   }
 }
@@ -469,7 +469,7 @@ run "control_plane_lb_always_exists" {
   }
 
   assert {
-    condition     = module.infrastructure.hcloud_load_balancer.control_plane.name == "rke2-cp-lb"
+    condition     = module.infrastructure.control_plane_lb_name == "rke2-cp-lb"
     error_message = "Control-plane LB must always be created with correct name."
   }
 }
@@ -526,12 +526,12 @@ run "kured_deployed_on_ha_with_auto_updates" {
   }
 
   assert {
-    condition     = length(module.addons.helm_release.kured) == 1
+    condition     = module.addons._test_counts.kured_release == 1
     error_message = "Kured must be deployed on HA cluster when enable_auto_os_updates = true."
   }
 
   assert {
-    condition     = length(module.addons.kubernetes_namespace_v1.kured) == 1
+    condition     = module.addons._test_counts.kured_namespace == 1
     error_message = "Kured namespace must be created on HA cluster when enable_auto_os_updates = true."
   }
 }
@@ -548,7 +548,7 @@ run "pre_upgrade_snapshot_disabled_by_default" {
   }
 
   assert {
-    condition     = length(module.infrastructure.terraform_data.pre_upgrade_snapshot) == 0
+    condition     = module.infrastructure._test_counts.pre_upgrade_snapshot == 0
     error_message = "Pre-upgrade snapshot should not exist when etcd backup is disabled (default)."
   }
 }
@@ -573,7 +573,7 @@ run "pre_upgrade_snapshot_enabled_with_etcd_backup" {
   }
 
   assert {
-    condition     = length(module.infrastructure.terraform_data.pre_upgrade_snapshot) == 1
+    condition     = module.infrastructure._test_counts.pre_upgrade_snapshot == 1
     error_message = "Pre-upgrade snapshot must be created when etcd backup is enabled."
   }
 }
@@ -615,37 +615,37 @@ run "longhorn_disabled_by_default" {
   }
 
   assert {
-    condition     = length(module.addons.kubernetes_namespace_v1.longhorn) == 0
+    condition     = module.addons._test_counts.longhorn_namespace == 0
     error_message = "Longhorn namespace should not be created when Longhorn is disabled (default)."
   }
 
   assert {
-    condition     = length(module.addons.helm_release.longhorn) == 0
+    condition     = module.addons._test_counts.longhorn_release == 0
     error_message = "Longhorn helm release should not be created when Longhorn is disabled (default)."
   }
 
   assert {
-    condition     = length(module.addons.kubernetes_secret_v1.longhorn_s3) == 0
+    condition     = module.addons._test_counts.longhorn_s3_secret == 0
     error_message = "Longhorn S3 secret should not be created when Longhorn is disabled (default)."
   }
 
   assert {
-    condition     = length(module.addons.kubectl_manifest.longhorn_iscsi_installer) == 0
+    condition     = module.addons._test_counts.longhorn_iscsi_installer == 0
     error_message = "Longhorn iSCSI installer should not be created when Longhorn is disabled (default)."
   }
 
   assert {
-    condition     = length(module.addons.kubernetes_labels.longhorn_worker) == 0
+    condition     = module.addons._test_counts.longhorn_worker_labels == 0
     error_message = "Longhorn worker labels should not be created when Longhorn is disabled (default)."
   }
 
   assert {
-    condition     = length(module.addons.terraform_data.longhorn_health_check) == 0
+    condition     = module.addons._test_counts.longhorn_health_check == 0
     error_message = "Longhorn health check should not be created when Longhorn is disabled (default)."
   }
 
   assert {
-    condition     = length(module.addons.terraform_data.longhorn_pre_upgrade_snapshot) == 0
+    condition     = module.addons._test_counts.longhorn_pre_upgrade_snapshot == 0
     error_message = "Longhorn pre-upgrade snapshot should not be created when Longhorn is disabled (default)."
   }
 }
@@ -666,33 +666,40 @@ run "longhorn_enabled_creates_resources" {
     }
   }
 
+  # NOTE: Longhorn experimental warning always fires when preinstall = true
+  # NOTE: SC exclusivity fires because both longhorn and hcloud_csi default to default_storage_class = true
+  expect_failures = [
+    check.longhorn_experimental_warning,
+    check.longhorn_and_csi_default_sc_exclusivity,
+  ]
+
   assert {
-    condition     = length(module.addons.kubernetes_namespace_v1.longhorn) == 1
+    condition     = module.addons._test_counts.longhorn_namespace == 1
     error_message = "Longhorn namespace must be created when Longhorn is enabled."
   }
 
   assert {
-    condition     = length(module.addons.helm_release.longhorn) == 1
+    condition     = module.addons._test_counts.longhorn_release == 1
     error_message = "Longhorn helm release must be created when Longhorn is enabled."
   }
 
   assert {
-    condition     = length(module.addons.kubectl_manifest.longhorn_iscsi_installer) == 1
+    condition     = module.addons._test_counts.longhorn_iscsi_installer == 1
     error_message = "Longhorn iSCSI installer must be created when Longhorn is enabled."
   }
 
   assert {
-    condition     = length(module.addons.kubernetes_labels.longhorn_worker) == 3
+    condition     = module.addons._test_counts.longhorn_worker_labels == 3
     error_message = "Longhorn worker labels must match worker_node_count (default 3)."
   }
 
   assert {
-    condition     = length(module.addons.terraform_data.longhorn_health_check) == 1
+    condition     = module.addons._test_counts.longhorn_health_check == 1
     error_message = "Longhorn health check must be created when Longhorn is enabled."
   }
 
   assert {
-    condition     = length(module.addons.terraform_data.longhorn_pre_upgrade_snapshot) == 1
+    condition     = module.addons._test_counts.longhorn_pre_upgrade_snapshot == 1
     error_message = "Longhorn pre-upgrade snapshot must be created when Longhorn is enabled."
   }
 }
@@ -714,8 +721,15 @@ run "longhorn_s3_secret_not_created_without_backup" {
     }
   }
 
+  # NOTE: Longhorn experimental warning always fires when preinstall = true
+  # NOTE: SC exclusivity fires because both longhorn and hcloud_csi default to default_storage_class = true
+  expect_failures = [
+    check.longhorn_experimental_warning,
+    check.longhorn_and_csi_default_sc_exclusivity,
+  ]
+
   assert {
-    condition     = length(module.addons.kubernetes_secret_v1.longhorn_s3) == 0
+    condition     = module.addons._test_counts.longhorn_s3_secret == 0
     error_message = "Longhorn S3 secret should not be created without a backup target."
   }
 }
@@ -736,8 +750,15 @@ run "longhorn_s3_secret_created_with_backup" {
     }
   }
 
+  # NOTE: Longhorn experimental warning always fires when preinstall = true
+  # NOTE: SC exclusivity fires because both longhorn and hcloud_csi default to default_storage_class = true
+  expect_failures = [
+    check.longhorn_experimental_warning,
+    check.longhorn_and_csi_default_sc_exclusivity,
+  ]
+
   assert {
-    condition     = length(module.addons.kubernetes_secret_v1.longhorn_s3) == 1
+    condition     = module.addons._test_counts.longhorn_s3_secret == 1
     error_message = "Longhorn S3 secret must be created when backup target is set."
   }
 }
@@ -757,6 +778,13 @@ run "longhorn_outputs_reflect_enabled_state" {
       }
     }
   }
+
+  # NOTE: Longhorn experimental warning always fires when preinstall = true
+  # NOTE: SC exclusivity fires because both longhorn and hcloud_csi default to default_storage_class = true
+  expect_failures = [
+    check.longhorn_experimental_warning,
+    check.longhorn_and_csi_default_sc_exclusivity,
+  ]
 
   assert {
     condition     = output.longhorn_enabled == true
