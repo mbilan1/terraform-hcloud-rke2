@@ -48,6 +48,9 @@ chmod +x /tmp/rke2-install.sh
 INSTALL_RKE2_TYPE="agent" INSTALL_RKE2_VERSION="${INSTALL_RKE2_VERSION}" /tmp/rke2-install.sh
 
 # Clean up install script
+# NOTE: With set -euo pipefail, this line only executes if all previous
+#       commands succeeded. If systemctl fails, the script exits immediately
+#       and /tmp/rke2-install.sh is preserved for debugging.
 rm -f /tmp/rke2-install.sh
 
 systemctl enable rke2-agent.service
