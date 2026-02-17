@@ -45,7 +45,7 @@ Key capabilities:
 - cert-manager with Let's Encrypt (DNS-01 via Route53)
 - Hetzner CCM + CSI for cloud integration
 - Self-maintenance: Kured + System Upgrade Controller (HA clusters only)
-- Backup: etcd snapshots (RKE2 native) + PVC backup via Velero/Kopia to S3
+- Backup: etcd snapshots (RKE2 native) + PVC backup via Longhorn native S3 backup
 
 > [!NOTE]
 > The module allows full `tofu destroy` (including primary control-plane node). In production, protect this operationally with code review, environment protections, and targeted plans/applies.
@@ -133,17 +133,16 @@ The module provides a **two-layer backup architecture** to Hetzner Object Storag
 | Layer | What | Mechanism | Variable |
 |-------|------|-----------|----------|
 | **etcd** | Cluster state (resources, secrets, configs) | RKE2 native snapshots via `config.yaml` | `cluster_configuration.etcd_backup` |
-| **PVC** | Application data (persistent volumes) | Velero + Kopia file-system backup | `velero` |
+| **PVC** | Application data (persistent volumes) | Longhorn native S3 backup (experimental) | `cluster_configuration.longhorn` |
 
 Each layer uses **independent S3 credentials** — share them at module invocation level if desired.
 
-> [!WARNING]
-> **Hetzner Object Storage is not listed in Velero's verified S3 providers.**
-> The module uses a `checksumAlgorithm=""` workaround to disable `aws-chunked` transfer encoding
-> that Hetzner rejects ([vmware-tanzu/velero#8660](https://github.com/vmware-tanzu/velero/issues/8660)).
-> Run a full backup+restore E2E test before relying on this in production.
+> [!NOTE]
+> Longhorn storage is marked **experimental** (`preinstall = false` by default).
+> When enabled, it replaces Hetzner CSI as the primary storage driver with
+> cross-worker replication, native VolumeSnapshot, and instant pre-upgrade snapshots.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#operations-backup-upgrade-rollback) for design rationale and vendor references.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#operations-backup-upgrade-rollback) for design rationale.
 
 ## Module Reference
 
@@ -316,7 +315,7 @@ Every tool runs in its own GitHub Actions workflow file with its own badge:
 - **Gate 0–1** run on every push to `main` and every PR — fully offline, zero cost, ~30s total
 - **Gate 2** runs `tofu plan` in `examples/minimal/` with real Hetzner + AWS credentials; skipped when `HAS_CLOUD_CREDENTIALS` repo variable is not `true`
 - **Gate 3** provisions real infrastructure (`tofu apply`), runs smoke tests (`kubectl get nodes`), then cleans up (`tofu destroy`); requires manual dispatch with cost confirmation checkbox
-- **63 unit tests** use `tofu test` with `mock_provider` — no cloud credentials needed
+- **84 unit tests** use `tofu test` with `mock_provider` — no cloud credentials needed
 
 See [tests/README.md](tests/README.md) for detailed test strategy, coverage traceability, and mock provider workarounds.
 

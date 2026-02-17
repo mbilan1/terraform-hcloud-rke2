@@ -1,0 +1,13 @@
+---
+# Ansible playbook for RKE2 base image preparation
+#
+# DECISION: Ansible for system hardening and package pre-installation.
+# Why: Declarative, idempotent, testable. Packer shell scripts would be
+#      procedural and harder to maintain/extend.
+# See: docs/ARCHITECTURE.md — L1 (Packer + Ansible)
+
+- name: Prepare RKE2 base image
+  hosts: all
+  become: true
+  roles:
+    - rke2-base

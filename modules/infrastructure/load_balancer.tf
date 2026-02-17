@@ -138,7 +138,7 @@ resource "hcloud_load_balancer_service" "cp_ssh" {
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
 resource "hcloud_load_balancer" "ingress" {
-  count              = var.harmony.enabled ? 1 : 0
+  count              = var.harmony_enabled ? 1 : 0
   name               = "${var.cluster_name}-ingress-lb"
   load_balancer_type = "lb11"
   location           = var.lb_location
@@ -148,14 +148,14 @@ resource "hcloud_load_balancer" "ingress" {
 }
 
 resource "hcloud_load_balancer_network" "ingress_network" {
-  count            = var.harmony.enabled ? 1 : 0
+  count            = var.harmony_enabled ? 1 : 0
   load_balancer_id = hcloud_load_balancer.ingress[0].id
   subnet_id        = hcloud_network_subnet.main.id
 }
 
 # Worker targets — ingress-nginx runs as DaemonSet with hostPort on workers
 resource "hcloud_load_balancer_target" "ingress_workers" {
-  count            = var.harmony.enabled ? var.worker_node_count : 0
+  count            = var.harmony_enabled ? var.worker_node_count : 0
   type             = "server"
   load_balancer_id = hcloud_load_balancer.ingress[0].id
   server_id        = hcloud_server.worker[count.index].id
@@ -165,7 +165,7 @@ resource "hcloud_load_balancer_target" "ingress_workers" {
 
 # HTTP service (80)
 resource "hcloud_load_balancer_service" "ingress_http" {
-  count            = var.harmony.enabled ? 1 : 0
+  count            = var.harmony_enabled ? 1 : 0
   load_balancer_id = hcloud_load_balancer.ingress[0].id
   protocol         = "tcp"
   listen_port      = 80
@@ -183,7 +183,7 @@ resource "hcloud_load_balancer_service" "ingress_http" {
 
 # HTTPS service (443)
 resource "hcloud_load_balancer_service" "ingress_https" {
-  count            = var.harmony.enabled ? 1 : 0
+  count            = var.harmony_enabled ? 1 : 0
   load_balancer_id = hcloud_load_balancer.ingress[0].id
   protocol         = "tcp"
   listen_port      = 443
@@ -201,7 +201,7 @@ resource "hcloud_load_balancer_service" "ingress_https" {
 
 # Additional custom ports on the ingress LB
 resource "hcloud_load_balancer_service" "ingress_custom" {
-  for_each         = var.harmony.enabled ? toset([for p in var.additional_lb_service_ports : tostring(p)]) : toset([])
+  for_each         = var.harmony_enabled ? toset([for p in var.additional_lb_service_ports : tostring(p)]) : toset([])
   load_balancer_id = hcloud_load_balancer.ingress[0].id
   protocol         = "tcp"
   listen_port      = tonumber(each.value)

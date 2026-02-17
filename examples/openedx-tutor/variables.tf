@@ -73,13 +73,13 @@ variable "letsencrypt_email" {
 variable "enable_backups" {
   type        = bool
   default     = false
-  description = "Enable etcd + Velero backup to Hetzner Object Storage."
+  description = "Enable etcd + Longhorn backup to Hetzner Object Storage."
 }
 
 variable "backup_s3_bucket" {
   type        = string
   default     = ""
-  description = "S3 bucket name for etcd and Velero backups (Hetzner Object Storage)."
+  description = "S3 bucket name for etcd and Longhorn backups (Hetzner Object Storage)."
 }
 
 variable "backup_s3_access_key" {

@@ -3,13 +3,14 @@
 > **Module**: `terraform-hcloud-rke2`
 > **Status**: **Experimental** — under active development, not production-ready
 > **Target**: Enterprise-grade, best-practice aligned (aspirational)
-> **Last updated**: 2026-02-13
+> **Last updated**: 2025-06-13
 
 ---
 
 ## Table of Contents
 
 - [Design Philosophy](#design-philosophy)
+- [Module Architecture](#module-architecture)
 - [Module Core](#module-core)
 - [Infrastructure Topology](#infrastructure-topology)
 - [Kubernetes Addon Stack](#kubernetes-addon-stack)
@@ -81,9 +82,98 @@ Each objective maps to specific, opinionated implementation choices:
 | Cost-Effective EU Hosting | Hetzner Cloud EU (Nuremberg, Falkenstein, Helsinki), GDPR-native, ~€38/mo for 3×cx22 masters + 3×cx22 workers + 2×lb11 (non-default HA config) |
 | Open edX Compatibility | Ubuntu 24.04 LTS (AppArmor for codejail), openedx-k8s-harmony chart, `harmony-letsencrypt-global` ClusterIssuer convention |
 | Resilience (HA Scope) | Kured (auto-reboot, HA only), System Upgrade Controller (K8s upgrades, HA only), RKE2 embedded etcd snapshots |
-| Incremental Hardening | IaC patterns, `terraform-docs`, `.pre-commit-config.yaml`, and a documented Compromise Log; CI security scanning remains planned work |
+| Incremental Hardening | IaC patterns, `terraform-docs`, `.pre-commit-config.yaml`, and a documented Compromise Log; CI security scanning (Checkov, KICS, tfsec) implemented |
 
 The primary constraint is Hetzner Cloud platform limitations and the balance between custom-built complexity and off-the-shelf pragmatism.
+
+---
+
+## Module Architecture
+
+The module uses a **nested module** structure that separates infrastructure provisioning from Kubernetes addon deployment. The root module is a **thin shim** that calls two child modules and wires their outputs together.
+
+```
+terraform-hcloud-rke2/            # Root module (shim)
+├── main.tf                       # module "infrastructure" + module "addons"
+├── variables.tf                  # All user-facing variables (unchanged)
+├── output.tf                     # Rewired to module.infrastructure.* outputs
+├── providers.tf                  # All provider configs (passed to children)
+├── guardrails.tf                 # All preflight check {} blocks
+├── moved.tf                      # 52 moved blocks for state migration
+│
+├── modules/
+│   ├── infrastructure/           # L3: Cloud resources + cluster bootstrap
+│   │   ├── main.tf               # Servers (master, worker)
+│   │   ├── ssh.tf                # SSH key generation
+│   │   ├── network.tf            # Private network + subnet
+│   │   ├── firewall.tf           # Hetzner Cloud Firewall
+│   │   ├── load_balancer.tf      # Dual LB (control-plane + ingress)
+│   │   ├── dns.tf                # Route53 wildcard record
+│   │   ├── cloudinit.tf          # cloudinit_config data sources
+│   │   ├── readiness.tf          # wait_for_api, wait_for_cluster_ready, kubeconfig
+│   │   ├── locals.tf             # Kubeconfig parsing, etcd S3 endpoint
+│   │   ├── variables.tf          # Infrastructure-specific inputs
+│   │   ├── outputs.tf            # Kubeconfig creds, IPs, network, cluster_ready
+│   │   ├── versions.tf           # required_providers (hcloud, cloudinit, etc.)
+│   │   ├── scripts/              # Cloud-init shell scripts
+│   │   └── templates/cloudinit/  # RKE2 config YAML templates
+│   │
+│   └── addons/                   # L4: Kubernetes addon stack
+│       ├── main.tf               # Dependency anchor (wait_for_infrastructure)
+│       ├── hccm.tf               # Hetzner Cloud Controller Manager
+│       ├── csi.tf                # Hetzner CSI driver
+│       ├── certmanager.tf        # cert-manager + ClusterIssuer
+│       ├── longhorn.tf           # Longhorn distributed storage (opt-in)
+│       ├── harmony.tf            # openedx-k8s-harmony chart (opt-in)
+│       ├── ingress.tf            # RKE2 built-in ingress (when Harmony off)
+│       ├── selfmaintenance.tf    # Kured + System Upgrade Controller (HA only)
+│       ├── locals.tf             # SUC components, Longhorn S3, Harmony values
+│       ├── variables.tf          # Infra outputs + root passthrough inputs
+│       ├── outputs.tf            # harmony_deployed, longhorn_deployed
+│       ├── versions.tf           # required_providers (kubernetes, helm, etc.)
+│       └── templates/            # Helm values + K8s manifests
+│
+└── packer/                       # L1+L2: Machine image build (scaffold)
+    ├── rke2-base.pkr.hcl         # Packer template for Hetzner Cloud
+    └── ansible/                  # Ansible roles for OS preparation
+```
+
+### Layer Separation
+
+| Layer | Directory | Responsibility | Providers |
+|:-----:|-----------|----------------|-----------|
+| L1+L2 | `packer/` | OS hardening, package pre-install (scaffold) | Packer + Ansible |
+| L3 | `modules/infrastructure/` | Cloud resources, networking, servers, cloud-init, cluster bootstrap, kubeconfig | hcloud, cloudinit, remote, aws, random, tls, local |
+| L4 | `modules/addons/` | Kubernetes addons deployed after cluster is ready | kubernetes, helm, kubectl, http |
+| Shim | Root (`/`) | Variable routing, provider config, guardrails, `moved` blocks | All (configured here, passed to children) |
+
+### Design Decisions
+
+**Root as shim, not orchestrator**: The root module contains zero resources. It declares all providers (with configs wired to `module.infrastructure.*` outputs), defines all user-facing variables, runs all preflight `check {}` blocks, and routes inputs to the two child modules.
+
+**Cloud-init inlined in infrastructure (not a separate module)**: Cloud-init templates need values from the infrastructure module (LB IP, RKE2 token from `random_password`) which are only known at apply time. Extracting cloud-init into a separate "bootstrap" module would create a circular dependency: servers need `user_data` from cloud-init, but cloud-init needs the LB IP from the server/LB resources. Inlining cloud-init in the infrastructure module keeps the dependency graph acyclic.
+
+**Explicit dependency anchor in addons**: The addons module uses `terraform_data.wait_for_infrastructure` (triggered by `var.cluster_ready`) instead of module-level `depends_on`. This preserves parallelism — health checks, pre-upgrade snapshots, and addon deployments can overlap where safe, rather than being serialized by a coarse module dependency.
+
+**Check blocks in root, not in child modules**: All `check {}` blocks live in root `guardrails.tf` so that `tofu test` can reference them as `check.name` without module path prefixes. This is a pragmatic choice — OpenTofu test `expect_failures` uses root-scoped addresses.
+
+**State migration via `moved` blocks**: 52 `moved` blocks in `moved.tf` map every resource from its old root address to its new `module.infrastructure.*` or `module.addons.*` address. This enables zero-downtime migration for existing deployments: `tofu plan` after upgrading shows only moves, no destroys.
+
+### Provider Flow
+
+```
+Root module (provider configuration)
+    │
+    ├── module.infrastructure
+    │   └── uses: hcloud, cloudinit, remote, aws, random, tls, local
+    │   └── outputs: cluster_host, client_cert, client_key, cluster_ca, ...
+    │
+    └── module.addons
+        └── uses: kubernetes, helm, kubectl, http
+        └── provider configs reference module.infrastructure.* outputs
+```
+
+Providers are configured **in the root module only**. Child modules declare `required_providers` (source + version) but do **not** contain `provider {}` blocks. The root's `providers.tf` configures kubernetes/helm/kubectl using outputs from `module.infrastructure` (kubeconfig credentials).
 
 ---
 
@@ -218,6 +308,10 @@ flowchart TB
             issuer["ClusterIssuer\nharmony-letsencrypt-global\nDNS-01 (Route53)"]
         end
 
+        subgraph longhorn_ns["longhorn-system (opt-in)"]
+            longhorn_chart["Longhorn\nDistributed Storage\n+ S3 Backup"]
+        end
+
         subgraph harmony_ns["harmony"]
             harmony["Harmony Chart\n(openedx-k8s-harmony)"]
             nginx["ingress-nginx\nDaemonSet + hostPort"]
@@ -239,6 +333,7 @@ flowchart TB
 | **Hetzner CCM** | Cloud controller (node lifecycle, LB integration) | Yes | Shared `hcloud` secret with CSI |
 | **Hetzner CSI** | Persistent volumes (`hcloud-volumes` StorageClass) | Yes | Required for Open edX PVCs (MySQL, Mongo, etc.) |
 | **cert-manager** | TLS certificate automation | Yes | ClusterIssuer name matches Harmony convention |
+| **Longhorn** | Distributed block storage + native S3 backup | Opt-in | `longhorn.preinstall` defaults to `false`. Experimental. Provides VolumeSnapshot + recurring backup jobs. |
 | **Harmony** | Open edX Kubernetes orchestration | Opt-in | `harmony.enabled` defaults to `false`. When enabled, it disables RKE2 built-in ingress and deploys Harmony ingress-nginx. |
 | **Kured** | Automatic node reboot after OS updates | HA only | Skipped on single-master clusters |
 | **System Upgrade Controller** | Automated K8s version upgrades | HA only | Follows `stable` channel |
@@ -278,8 +373,9 @@ flowchart LR
         kubeconfig["Fetch kubeconfig\n(data.remote_file)"]
         hccm2["HCCM + CSI"]
         cm2["cert-manager\n+ ClusterIssuer"]
+        longhorn2["Longhorn\n(opt-in)"]
         harm2["Harmony Chart\n(ingress-nginx)"]
-        kubeconfig --> hccm2 --> cm2 --> harm2
+        kubeconfig --> hccm2 --> cm2 --> longhorn2 --> harm2
     end
 
     phase1 --> phase2 --> phase3
@@ -298,7 +394,7 @@ flowchart LR
 6. **LB registration service** (port 9345) — enables additional nodes to join
 7. **Additional masters** — join via LB → master-0 (etcd quorum formed)
 8. **Workers** — join via LB → any master
-9. **wait_for_api** — SSH into master-0, poll until API server responds (uses `null_resource` with SSH provisioner — a Terraform anti-pattern, but the only option without external tooling)
+9. **wait_for_api** — SSH into master-0, poll until API server responds (uses `terraform_data` with SSH provisioner — provisioners are a Terraform anti-pattern, but the only option without external tooling)
 10. **wait_for_cluster_ready** — poll until all nodes report `Ready` (also via SSH provisioner)
 
 ### Phase 3: Cluster Addons (sequential, after kubeconfig fetch)
@@ -306,7 +402,8 @@ flowchart LR
 11. **Fetch kubeconfig** — downloaded from master-0 via SSH
 12. **HCCM + CSI** — cloud integration (node labeling, persistent volumes)
 13. **cert-manager** — TLS automation with Let's Encrypt ClusterIssuer
-14. **Harmony** — Open edX platform chart with infrastructure-specific values
+14. **Longhorn** — distributed storage with native S3 backup (opt-in, `preinstall = true` required)
+15. **Harmony** — Open edX platform chart with infrastructure-specific values
 
 ---
 
@@ -503,7 +600,7 @@ The module uses a **layered quality gate pipeline** in GitHub Actions. Each gate
                ╱  Plan    ╲     tofu plan with real providers, PR + manual
               ╱────────────╲
              ╱              ╲    Gate 1: Unit Tests
-            ╱  63 unit tests ╲   tofu test + mock_provider, every PR, ~3s, $0
+            ╱  84 unit tests ╲   tofu test + mock_provider, every PR, ~3s, $0
            ╱──────────────────╲
           ╱                    ╲  Gate 0: Static Analysis
          ╱  fmt · validate ·    ╲ tflint · Checkov · KICS · tfsec
@@ -527,6 +624,8 @@ The module uses a **layered quality gate pipeline** in GitHub Actions. Each gate
 | 2 | Integration: plan | `integration-plan.yml` | PR + manual | $0 (plan only) |
 | 3 | E2E: apply | `e2e-apply.yml` | Manual only | ~$0.50/run |
 
+> **Trigger semantics**: Gates 0–1 fire on **every push to any branch** (including `main`) and on PRs targeting `main`. This provides instant feedback on feature branches without waiting for a PR. Gate 2 fires on PRs to `main` + manual dispatch (needs credentials). Gate 3 is manual-only with cost confirmation.
+
 ### Naming Convention
 
 All workflow files follow the pattern `{category}-{tool}.yml`:
@@ -549,11 +648,11 @@ flowchart LR
         tfsec["tfsec"]
     end
 
-    subgraph gate1["Gate 1: Unit Tests (63 tests)"]
+    subgraph gate1["Gate 1: Unit Tests (84 tests)"]
         direction TB
         vars["variables.tftest.hcl\n23 tests"]
-        guards["guardrails.tftest.hcl\n16 tests"]
-        cond["conditional_logic.tftest.hcl\n22 tests"]
+        guards["guardrails.tftest.hcl\n28 tests"]
+        cond["conditional_logic.tftest.hcl\n31 tests"]
         examples["examples.tftest.hcl\n2 tests"]
     end
 
@@ -573,13 +672,13 @@ flowchart LR
 
 ### Unit Test Architecture
 
-All 63 unit tests run **offline** using `tofu test` with `mock_provider`:
+All 84 unit tests run **offline** using `tofu test` with `mock_provider`:
 
 | Test File | Tests | Scope |
 |-----------|:-----:|-------|
 | `variables.tftest.hcl` | 23 | Every `validation {}` block with positive + negative cases |
-| `guardrails.tftest.hcl` | 16 | Every `check {}` block (8/10 directly; 2 DNS untestable) |
-| `conditional_logic.tftest.hcl` | 22 | Resource count assertions for all feature toggles |
+| `guardrails.tftest.hcl` | 28 | Every `check {}` block (incl. etcd backup and Longhorn guardrails; 2 DNS untestable) |
+| `conditional_logic.tftest.hcl` | 31 | Resource count assertions for all feature toggles (incl. Longhorn) |
 | `examples.tftest.hcl` | 2 | Full-stack patterns (minimal, OpenEdX-Tutor) |
 
 Key design decisions:
@@ -620,8 +719,8 @@ The module implements a **two-layer backup architecture** separating cluster sta
 │  │  Layer 1: etcd       │  │  Layer 2: PVC data      │  │
 │  │  (cluster state)     │  │  (application data)     │  │
 │  │                      │  │                          │  │
-│  │  Mechanism: RKE2     │  │  Mechanism: Velero +     │  │
-│  │  native snapshots    │  │  Kopia FSB               │  │
+│  │  Mechanism: RKE2     │  │  Mechanism: Longhorn     │  │
+│  │  native snapshots    │  │  native S3 backup        │  │
 │  │                      │  │                          │  │
 │  │  Config: cloud-init  │  │  Config: Helm release    │  │
 │  │  (pre-K8s)           │  │  (requires running K8s)  │  │
@@ -645,24 +744,24 @@ The module implements a **two-layer backup architecture** separating cluster sta
 - **Variable:** `cluster_configuration.etcd_backup`
 - **See:** https://docs.rke2.io/datastore/backup_restore
 
-#### Layer 2: PVC Data (Velero + Kopia)
+#### Layer 2: PVC Data (Longhorn Native Backup)
 
-- **Mechanism:** Velero Helm chart with Kopia file-system backup (FSB)
-- **Why Kopia:** Hetzner CSI does not support VolumeSnapshot ([issue #849](https://github.com/hetznercloud/csi-driver/issues/849)). Restic was removed in Velero v1.17; Kopia is the sole uploader.
-- **Plugin:** `velero-plugin-for-aws` v1.13.x (compatibility: v1.13.x ↔ Velero v1.17.x)
-- **S3 workaround:** `checksumAlgorithm: ""` disables aws-chunked transfer encoding that Hetzner rejects ([issue #8660](https://github.com/vmware-tanzu/velero/issues/8660))
-- **Variable:** `velero` (independent credentials from etcd_backup)
-- **File:** `cluster-velero.tf` (self-contained addon with inline guardrails)
+- **Mechanism:** Longhorn distributed storage with native S3 backup (recurring jobs)
+- **Why Longhorn:** Integrated storage + backup in a single component. Native VolumeSnapshot support (Hetzner CSI has none — [issue #849](https://github.com/hetznercloud/csi-driver/issues/849)). Instant COW pre-upgrade snapshots. Fewer components in restore path (1 vs 4 with Velero).
+- **Backup target:** S3-compatible storage via `backup_target` variable (e.g. `s3://bucket@region/folder`)
+- **Variable:** `cluster_configuration.longhorn` (independent credentials from etcd_backup)
+- **File:** `modules/addons/longhorn.tf` (addon with guardrails in root `guardrails.tf`)
+- **Status:** Experimental (`preinstall = false` by default)
 
 #### Design Decisions
 
 | Decision | Rationale |
 |----------|----------|
-| Separate etcd + Velero layers | etcd backup is pre-K8s (cloud-init), Velero requires running cluster. Different failure modes, different recovery paths. |
+| Separate etcd + Longhorn layers | etcd backup is pre-K8s (cloud-init), Longhorn requires running cluster. Different failure modes, different recovery paths. |
 | Separate S3 credentials | Module's self-contained addon pattern. Each addon owns its config. Operators share credentials at invocation level if desired. |
-| Kopia over Restic | Restic removed in Velero v1.17. Kopia is faster (parallelized, content-defined chunking) and has been the default since v1.14. |
-| `snapshotsEnabled: false` | Hetzner CSI has no VolumeSnapshot driver. Disabling prevents unavailable VolumeSnapshotLocation CRD error logs. |
-| Path-style S3 | Hetzner Object Storage does not support virtual-hosted style. Both etcd and Velero require path-style configuration. |
+| Longhorn over Velero + Kopia | Integrated storage + backup in single component. Fewer components in restore path (1 vs 4). Native VolumeSnapshot. Instant COW pre-upgrade snapshots. |
+| Longhorn experimental default | Marked `preinstall = false` to allow gradual rollout. Hetzner CSI retained as stable fallback. |
+| Path-style S3 | Hetzner Object Storage does not support virtual-hosted style. Both etcd and Longhorn require path-style configuration. |
 
 ### Upgrade Strategy
 
@@ -671,7 +770,7 @@ Upgrades follow a **snapshot-before-upgrade** pattern:
 1. Pre-upgrade on-demand etcd snapshot (via System Upgrade Controller `prepare` hook)
 2. Cordon + drain node
 3. RKE2 binary upgrade (System Upgrade Controller)
-4. Post-upgrade health check (`null_resource.cluster_health_check`)
+4. Post-upgrade health check (`terraform_data.cluster_health_check`)
 
 If the health check fails, the operator can restore the pre-upgrade etcd snapshot.
 
@@ -683,7 +782,7 @@ Full etcd restore (not binary downgrade) is the recommended rollback path:
 2. Restore etcd snapshot on master-0
 3. Start master-0, wait for API
 4. Restart additional masters + workers
-5. Velero PVC restore (if needed)
+5. Longhorn volume restore (if PVC data affected)
 6. Health check validation
 
 **Why not binary downgrade:** Kubernetes API objects may have been migrated to newer schemas during upgrade. Binary downgrade leaves the cluster in an inconsistent state. etcd restore guarantees consistency.
@@ -698,7 +797,7 @@ The module contains many deliberate compromises. Each is documented in code comm
 |----------|-----------|-----------|
 | SSH/API open by default | Security vs usability | Provisioners require SSH to master-0; blocking SSH causes `tofu apply` to hang. Follows terraform-aws-eks pattern. |
 | Single firewall for all nodes | Granularity vs simplicity | A split firewall (master/worker) is planned. Current single firewall applies to all nodes — masters get HTTP/HTTPS rules they don't need, workers get etcd/API rules they don't need. Simpler to reason about and manage. |
-| `null_resource` provisioners | Idempotency vs necessity | Provisioners are a Terraform anti-pattern, but are the only way to wait for cluster readiness and fetch kubeconfig without external tooling. |
+| `terraform_data` provisioners | Idempotency vs necessity | Provisioners are a Terraform anti-pattern, but are the only way to wait for cluster readiness and fetch kubeconfig without external tooling. `terraform_data` (built-in) replaces `null_resource` for better lifecycle and no external provider dependency. |
 | Providers inside module | Composability vs simplicity | Prevents provider aliasing and multi-account patterns. Provider extraction is planned as a breaking change. |
 | Route53 for DNS | EU sovereignty vs maturity | Cloudflare was removed for sovereignty reasons. Route53 is a temporary solution — will be replaced with a more aligned provider. |
 | `data.http` for CRD downloads | Reproducibility vs simplicity | Manifests are downloaded from GitHub at plan time by default. Operators can disable this path via `allow_remote_manifest_downloads = false` (requires disabling dependent features) for stricter/offline workflows. Vendoring into repo remains planned. |
@@ -707,9 +806,11 @@ The module contains many deliberate compromises. Each is documented in code comm
 | ModSecurity + Harmony gap | Integration vs complexity | `enable_nginx_modsecurity_waf` has no effect when `harmony.enabled = true` (opt-in). Harmony deploys its own ingress-nginx without ModSecurity support. |
 | DNS requires Harmony | Simplicity vs composability | `create_dns_record = true` targets the ingress LB, so `harmony.enabled = true` is required. This is now guarded by an explicit preflight `check` with a clear error. |
 | RKE2 version pinned | Reproducibility vs freshness | RKE2 defaults to `v1.34.4+rke2r1` (latest in the Rancher-supported v1.34 line). Operators can override via `rke2_version` variable or set to `""` for latest stable. |
-| Hetzner S3 checksum workaround | Compatibility vs standard SDK | `checksumAlgorithm=""` disables aws-sdk-go-v2 default CRC32 checksum. Required because Hetzner Object Storage rejects `aws-chunked` transfer encoding. Community-sourced workaround ([#8660](https://github.com/vmware-tanzu/velero/issues/8660)), E2E validation mandatory. |
-| Separate backup credentials | DRY vs safety | etcd and Velero use independent S3 credentials despite potentially sharing the same Hetzner Object Storage account. `coalesce("","")` causes runtime errors, and credential sharing obscures which addon depends on which secret. Operators can share at invocation level. |
+| Separate backup credentials | DRY vs safety | etcd and Longhorn use independent S3 credentials despite potentially sharing the same Hetzner Object Storage account. Each addon owns its config. Operators can share at invocation level. |
 | GitHub downloads at plan time | Simplicity vs reliability | System Upgrade Controller CRDs are downloaded from GitHub via `data.http` at `tofu plan`. If GitHub is unreachable, plan fails. Vendoring is planned. |
+| Nested module split | Separation vs complexity | Infrastructure (L3) and addons (L4) are separate child modules for clear provider isolation and independent evolution. Root is a thin shim with zero resources. Trade-off: more files, variable forwarding boilerplate, `moved` blocks for migration. |
+| Cloud-init in infrastructure | Simplicity vs separation | Cloud-init templates live in `modules/infrastructure/` rather than a separate "bootstrap" module. Extracting them would create a circular dependency (cloud-init needs LB IP + RKE2 token from infrastructure). |
+| Check blocks in root | Testability vs locality | All `check {}` blocks are in root `guardrails.tf` rather than co-located with the resources they guard. Required because `tofu test` references checks via root-scoped addresses (`check.name`). |
 
 ---
 
@@ -728,8 +829,8 @@ The path from current state to enterprise-grade, grouped by priority:
 ### Mid-term
 
 - [ ] Proxy protocol on ingress LB (real client IP visibility)
-- [ ] Add `moved` blocks for safe resource renames
-- [x] Add `.tftest.hcl` unit tests — **63 tests** across 4 files (variables, guardrails, conditional logic, examples)
+- [x] Add `moved` blocks for safe resource renames — **52 moved blocks** for nested module migration (`moved.tf`)
+- [x] Add `.tftest.hcl` unit tests — **84 tests** across 4 files (variables, guardrails, conditional logic, examples)
 - [x] GitHub Actions CI pipeline — **12 workflows** (lint ×3, SAST ×3, unit ×4, integration ×1, E2E ×1)
 - [ ] Add `ssh_private_key` and additional outputs
 
@@ -737,8 +838,8 @@ The path from current state to enterprise-grade, grouped by priority:
 
 - [ ] **Provider extraction** — remove all provider configurations from module (breaking change, major version bump)
 - [x] etcd backup strategy (automated snapshots to S3-compatible storage) — **implemented** via `cluster_configuration.etcd_backup`
-- [x] Velero PVC backup to Hetzner Object Storage — **implemented** via `velero` variable
-- [ ] Velero backup observability (monitoring, alerting on failed backups)
+- [x] Longhorn native PVC backup to Hetzner Object Storage — **implemented** via `cluster_configuration.longhorn` (experimental)
+- [ ] Longhorn backup observability (monitoring, alerting on failed backups)
 - [ ] Automated restore drill / backup validation
 - [ ] Network Policies (default deny + explicit allow)
 - [ ] Pod Security Standards / admission policies
@@ -757,7 +858,7 @@ The following are intentionally **not** part of this module:
 |-------|--------|
 | **OS-level hardening** | Server hardening is the operator's responsibility. Use Ansible roles (e.g., `dev-sec/ansible-collection-hardening`) after provisioning. |
 | **Application deployment** | The module deploys infrastructure and the Harmony chart. Individual Open edX instance deployment (Tutor) is a separate concern. |
-| **Backup and disaster recovery** | The module provides etcd S3 backup (RKE2 native) and Velero + Kopia PVC backup to Hetzner Object Storage. Application-level consistency (pre-backup hooks, `mysqldump`/`mongodump`) is the operator's responsibility at the Tutor deployment layer. Restore drills and backup monitoring are on the roadmap. |
+| **Backup and disaster recovery** | The module provides etcd S3 backup (RKE2 native) and Longhorn native PVC backup to Hetzner Object Storage (experimental). Application-level consistency (pre-backup hooks, `mysqldump`/`mongodump`) is the operator's responsibility at the Tutor deployment layer. Restore drills and backup monitoring are on the roadmap. |
 | **Multi-cluster federation** | The module deploys a single cluster. Multi-cluster patterns are out of scope. |
 | **Custom CNI configuration** | The module supports CNI selection (canal, calico, cilium, none) but does not manage CNI-specific configuration (BGP peers, IP pools, etc.). |
 | **CI/CD pipelines for applications** | The module provides infrastructure. Application CI/CD (ArgoCD, Flux, etc.) is a separate layer. |

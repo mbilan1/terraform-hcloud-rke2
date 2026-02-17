@@ -72,7 +72,7 @@ mock_provider "aws" {}
 mock_provider "kubectl" {}
 mock_provider "kubernetes" {}
 mock_provider "helm" {}
-mock_provider "null" {}
+mock_provider "cloudinit" {}
 mock_provider "random" {}
 mock_provider "tls" {}
 mock_provider "local" {}

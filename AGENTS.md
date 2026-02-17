@@ -53,7 +53,7 @@ An **OpenTofu/Terraform module** (NOT a root deployment) that deploys a producti
 1. **Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** before any structural change
 2. **Run `tofu validate`** after any `.tf` file change to verify syntax
 3. **Run `tofu fmt -check`** to verify formatting (or `tofu fmt` to auto-fix)
-4. **Run `tofu test`** after any change to variables, guardrails, or conditional logic (63 tests, ~3s, $0)
+4. **Run `tofu test`** after any change to variables, guardrails, or conditional logic (84 tests, ~3s, $0)
 5. **Preserve existing code comments** — they document deliberate compromises
 6. **Read the relevant file before editing** — understand the dependency chain
 7. **Verify external claims via network** before suggesting or making changes (see [Verification Rules](#verification-rules-mandatory))
@@ -179,43 +179,66 @@ The root directory is a **reusable Terraform module**. It does NOT have:
 
 Actual deployments that **use** this module live in `examples/` or in separate repositories (like `abstract-k8s-common-template`).
 
-### Root Terraform Files
+### Root Terraform Files (Shim Layer)
+
+The root module is a **thin shim** containing zero resources. It wires two child modules together:
 
 | File | Purpose |
 |------|---------|
-| `main.tf` | Server resources (masters, workers), cloud-init, provisioners |
-| `providers.tf` | All required providers with version constraints (12+ providers) |
-| `variables.tf` | All input variables with descriptions, types, defaults, validations |
-| `output.tf` | Module outputs (kubeconfig, IPs, etc.) |
-| `locals.tf` | Computed values and internal configuration |
-| `data.tf` | Data sources (remote kubeconfig, HTTP downloads for CRDs) |
+| `main.tf` | `module "infrastructure"` + `module "addons"` calls with variable routing |
+| `providers.tf` | All provider configurations (passed to child modules) |
+| `variables.tf` | All user-facing input variables with descriptions, types, defaults, validations |
+| `output.tf` | Module outputs rewired to `module.infrastructure.*` |
+| `guardrails.tf` | All preflight `check {}` blocks (DNS, Harmony, Longhorn, self-maintenance, etc.) |
+| `moved.tf` | 52 `moved` blocks mapping old root addresses to `module.infrastructure.*` / `module.addons.*` |
+
+### Child Modules
+
+#### `modules/infrastructure/` — Cloud Resources + Cluster Bootstrap
+
+| File | Purpose |
+|------|---------|
+| `main.tf` | Server resources (masters, workers), random strings/passwords |
+| `cloudinit.tf` | `cloudinit_config` data sources for structured multipart cloud-init |
+| `ssh.tf` | Auto-generated RSA 4096 SSH key pair |
 | `network.tf` | Hetzner private network and subnet |
 | `firewall.tf` | Hetzner Cloud Firewall rules |
 | `load_balancer.tf` | Dual LB architecture (control-plane LB + ingress LB) |
 | `dns.tf` | AWS Route53 DNS records (wildcard → ingress LB) |
-| `ssh.tf` | Auto-generated RSA 4096 SSH key pair |
-| `guardrails.tf` | Preflight validation checks (e.g. DNS requires Harmony) |
+| `readiness.tf` | `wait_for_api`, `wait_for_cluster_ready`, kubeconfig fetch, health checks |
+| `locals.tf` | Kubeconfig parsing, etcd S3 endpoint |
+| `variables.tf` | Infrastructure-specific inputs (subset of root variables) |
+| `outputs.tf` | Kubeconfig credentials, IPs, network IDs, `cluster_ready` |
+| `versions.tf` | `required_providers`: hcloud, cloudinit, remote, aws, random, tls, local |
 
-### Cluster Addon Files (cluster-*.tf)
+Templates and scripts live **inside** the module: `modules/infrastructure/templates/cloudinit/`, `modules/infrastructure/scripts/`.
+
+#### `modules/addons/` — Kubernetes Addon Stack
 
 | File | Purpose | Always deployed? |
 |------|---------|:---:|
-| `cluster-hccm.tf` | Hetzner Cloud Controller Manager | Yes |
-| `cluster-csi.tf` | Hetzner CSI driver (persistent volumes) | Yes |
-| `cluster-certmanager.tf` | cert-manager + ClusterIssuer (Let's Encrypt) | Yes |
-| `cluster-harmony.tf` | openedx-k8s-harmony chart + ingress-nginx | Opt-in (`harmony.enabled`) |
-| `cluster-ingresscontroller.tf` | RKE2 built-in ingress (when Harmony disabled) | Conditional |
-| `cluster-selfmaintenance.tf` | Kured + System Upgrade Controller | HA only (≥3 masters) |
+| `main.tf` | Dependency anchor (`wait_for_infrastructure`) | Yes |
+| `hccm.tf` | Hetzner Cloud Controller Manager | Yes |
+| `csi.tf` | Hetzner CSI driver (persistent volumes) | Yes |
+| `certmanager.tf` | cert-manager + ClusterIssuer (Let's Encrypt) | Yes |
+| `longhorn.tf` | Longhorn distributed storage + S3 backup | Opt-in (`longhorn.preinstall`) |
+| `harmony.tf` | openedx-k8s-harmony chart + ingress-nginx | Opt-in (`harmony.enabled`) |
+| `ingress.tf` | RKE2 built-in ingress (when Harmony disabled) | Conditional |
+| `selfmaintenance.tf` | Kured + System Upgrade Controller | HA only (≥3 masters) |
+| `locals.tf` | SUC components, Longhorn S3, Harmony values | — |
+| `variables.tf` | Infra outputs + root passthrough inputs | — |
+| `outputs.tf` | `harmony_deployed`, `longhorn_deployed` | — |
+| `versions.tf` | `required_providers`: kubernetes, helm, kubectl, http | — |
+
+Templates live **inside** the module: `modules/addons/templates/values/`, `modules/addons/templates/manifests/`.
 
 ### Other Directories
 
 | Path | Purpose |
 |------|---------|
-| `scripts/` | cloud-init shell templates (`rke-master.sh.tpl`, `rke-worker.sh.tpl`) |
-| `templates/manifests/` | Raw Kubernetes YAML manifests (System Upgrade Controller) |
-| `templates/values/` | Helm chart values files |
-| `docs/` | Architecture docs — **READ `ARCHITECTURE.md` BEFORE ANY WORK** |
-| `examples/` | Example deployments (`simple-setup/`, `minimal/`, `rancher-setup/`) |
+| `packer/` | Machine image build scaffold (Packer + Ansible) — OS hardening, package pre-install |
+| `docs/` | Architecture docs (`ARCHITECTURE.md`, `PLAN-operational-readiness.md`) — **READ `ARCHITECTURE.md` BEFORE ANY WORK** |
+| `examples/` | Example deployments (`simple-setup/`, `minimal/`, `rancher-setup/`, `openedx-tutor/`) |
 | `tests/` | Unit test files (`*.tftest.hcl`) — see [tests/README.md](tests/README.md) |
 | `.github/workflows/` | CI workflow files (12 workflows) — see below |
 
@@ -238,29 +261,47 @@ All workflow files follow the naming convention `{category}-{tool}.yml`:
 | `integration-plan.yml` | 2 | `tofu plan` (examples/minimal/) | PR + manual |
 | `e2e-apply.yml` | 3 | `tofu apply` + smoke + `tofu destroy` | Manual only |
 
+> **Trigger details**: Gates 0a/0b/1 run on **every push** (all branches) and on PRs targeting `main`. Gate 2 requires cloud credentials and runs only on PRs + manual dispatch. Gate 3 provisions real infrastructure and is manual-only with cost confirmation.
+
 ### Test Files (tests/)
 
 | File | Tests | Scope |
 |------|:-----:|-------|
 | `variables.tftest.hcl` | 23 | Variable `validation {}` blocks (positive + negative) |
-| `guardrails.tftest.hcl` | 16 | Cross-variable `check {}` blocks |
-| `conditional_logic.tftest.hcl` | 22 | Resource count assertions for feature toggles |
+| `guardrails.tftest.hcl` | 28 | Cross-variable `check {}` blocks (incl. Longhorn guardrails) |
+| `conditional_logic.tftest.hcl` | 31 | Resource count assertions for feature toggles (incl. Longhorn) |
 | `examples.tftest.hcl` | 2 | Full-stack example configurations |
-| **Total** | **63** | All tests use `mock_provider`, ~3s, $0 |
+| **Total** | **84** | All tests use `mock_provider`, ~3s, $0 |
 
 ---
 
 ## Architecture Constraints (from ARCHITECTURE.md — read the full document)
 
 ### Dependency Chain
-Addons deploy **sequentially** after cluster readiness:
+Addons deploy **sequentially** after cluster readiness. The infrastructure module (`modules/infrastructure/`) produces a `cluster_ready` output that the addons module (`modules/addons/`) consumes via a `terraform_data.wait_for_infrastructure` anchor:
 ```
-Infrastructure → master-0 → additional masters → workers
-    → wait_for_api → wait_for_cluster_ready
-    → fetch kubeconfig → HCCM → CSI → cert-manager → Harmony
+module.infrastructure: Network → Firewall → SSH → LBs → master-0
+    → additional masters → workers → wait_for_api → wait_for_cluster_ready
+    → kubeconfig fetch
+
+module.addons: wait_for_infrastructure → HCCM → CSI → cert-manager → Longhorn → Harmony
 ```
 
 **Do NOT reorder** addon deployments — they have provider/resource dependencies.
+
+### Module Structure Rules
+- **Root module = shim** — contains zero resources, only module calls, provider configs, variables, guardrails, and `moved` blocks
+- **All `check {}` blocks live in root `guardrails.tf`** — not in child modules (required for `tofu test` `expect_failures` addressing)
+- **Templates and scripts live INSIDE their child module** — use `${path.module}/templates/` and `${path.module}/scripts/` in `templatefile()` calls
+- **Providers configured in root only** — child modules declare `required_providers` but NOT `provider {}` blocks
+- **`moved.tf`** — 52 blocks mapping old root addresses to `module.infrastructure.*` / `module.addons.*`. Do NOT remove these until all known deployments have migrated.
+
+### Cloud-Init Architecture
+- Server config (`config.yaml`) is written to disk via `cloudinit_config` `write_files` directive
+- Shell scripts are minimal: detect IP → `sed` placeholder → curl install → systemctl start
+- All conditional logic (etcd backup, ingress, secrets encryption) lives in config templates, NOT in shell scripts
+- `cloudinit_config` data sources are in `modules/infrastructure/cloudinit.tf` (one per node role)
+- Cloud-init lives in infrastructure module (not separate) to avoid circular dependency with LB IP and RKE2 token
 
 ### Dual Load Balancer Design
 - **Control-plane LB**: targets masters only (ports 6443, 9345, optionally 22)
@@ -284,12 +325,14 @@ When `harmony.enabled = false`:
 
 ### master-0 Is Special
 - `master-0` bootstraps the entire cluster
-- It has `prevent_destroy = true` lifecycle rule
+- It does **NOT** have `prevent_destroy` — full lifecycle management (including `tofu destroy`) is kept unblocked for dev/test. Production protection relies on branch protection, reviews, and targeted plans (see Compromise Log in ARCHITECTURE.md).
 - `INITIAL_MASTER` flag in user_data is set at creation and never re-evaluated (`ignore_changes = [user_data]`)
 - SSH provisioners connect to master-0 for kubeconfig retrieval and readiness checks
 
 ### Provider Constraints
 - `gavinbunney/kubectl` provider is used for raw manifest application — do NOT change without live verification and explicit user approval
+- `hashicorp/cloudinit` provider is used for structured multipart cloud-init — do NOT replace with raw `templatefile()`
+- `terraform_data` (built-in) replaces all former `null_resource` usage — no `hashicorp/null` dependency
 - All providers are declared **inside** the module (known anti-pattern, extraction planned as breaking change)
 - Provider versions use `~>` pessimistic constraint — changing major versions is a breaking change
 

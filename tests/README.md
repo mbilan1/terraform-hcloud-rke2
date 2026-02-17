@@ -15,7 +15,7 @@ Unit tests for the `terraform-hcloud-rke2` module using OpenTofu's native `tofu 
                ╱  Plan    ╲      tofu plan (examples/minimal) with real providers
               ╱────────────╲
              ╱              ╲    Gate 1: Unit Tests
-            ╱  63 unit tests ╲   tofu test + mock_provider, every PR, ~$0
+            ╱  84 unit tests ╲   tofu test + mock_provider, every PR, ~$0
            ╱──────────────────╲
           ╱                    ╲  Gate 0: Static Analysis
          ╱ fmt · validate ·     ╲ tflint · checkov · tfsec · kics
@@ -29,7 +29,7 @@ Unit tests for the `terraform-hcloud-rke2` module using OpenTofu's native `tofu 
 | **Offline-first** | All tests use `mock_provider` — zero cloud credentials, zero cost, ~3s total |
 | **Shift-left** | Catch misconfigurations at `plan` phase, not at `apply` (30min+ deploy) |
 | **100% validation coverage** | Every `validation {}` block tested with positive + negative cases |
-| **100% guardrail coverage** | Every `check {}` block tested (8/10 directly; 2 DNS checks documented as untestable) |
+| **100% guardrail coverage** | Every `check {}` block tested (13/15 directly; 2 DNS checks documented as untestable) |
 | **100% branch coverage** | Every conditional `count`/`for_each` tested for both enabled and disabled states |
 | **Deterministic** | No network calls, no randomness, no timing — same result every run |
 | **Self-documenting** | Each `run` block has a UT-ID comment header with rationale |
@@ -47,7 +47,7 @@ Unit tests for the `terraform-hcloud-rke2` module using OpenTofu's native `tofu 
 
 These areas require real infrastructure (E2E / integration tests) and are explicitly out of scope for unit tests:
 
-- **Provisioner execution** — `null_resource.wait_for_api`, `null_resource.wait_for_cluster_ready` use SSH `remote-exec` which cannot be mocked
+- **Provisioner execution** — `terraform_data.wait_for_api`, `terraform_data.wait_for_cluster_ready` use SSH `remote-exec` which cannot be mocked
 - **Cloud-init scripts** — `scripts/rke-master.sh.tpl`, `scripts/rke-worker.sh.tpl` are rendered but not executed
 - **Helm chart deployment** — mocked `helm_release` doesn't validate chart existence or values schema
 - **Actual K8s API reachability** — kubeconfig fetch, provider authentication against real cluster
@@ -69,10 +69,10 @@ All tests run **offline** with mocked providers — no cloud credentials, no inf
 | File | Tests | Scope |
 |------|:-----:|-------|
 | `variables.tftest.hcl` | 23 | Variable validations — every `validation {}` block tested with positive + negative cases |
-| `guardrails.tftest.hcl` | 16 | Cross-variable guardrails — every `check {}` block tested (8 of 10 directly; 2 DNS untestable) |
-| `conditional_logic.tftest.hcl` | 22 | Resource count assertions for all conditional branches (harmony, masters, workers, LB, SSH, cert-manager, HCCM, CSI, kured) |
+| `guardrails.tftest.hcl` | 28 | Cross-variable guardrails — every `check {}` block tested (incl. etcd backup and Longhorn guardrails; 2 DNS untestable) |
+| `conditional_logic.tftest.hcl` | 31 | Resource count assertions for all conditional branches (harmony, masters, workers, LB, SSH, cert-manager, HCCM, CSI, kured, Longhorn) |
 | `examples.tftest.hcl` | 2 | Full-stack configuration patterns (minimal, OpenEdX-Tutor) |
-| **Total** | **63** | |
+| **Total** | **84** | |
 
 > **Note:** 2 DNS check blocks (`dns_requires_zone_id`, `dns_requires_harmony_ingress`) cannot be tested
 > with mock providers — the downstream `aws_route53_record` triggers uncatchable provider schema  
@@ -126,13 +126,13 @@ Covers: `domain`, `master_node_count`, `cluster_name`, `rke2_cni`, `additional_l
 
 Tests that `check {}` blocks produce warnings for inconsistent variable combinations.
 
-Covers: `aws_credentials_pair_consistency`, `letsencrypt_email_required_when_issuer_enabled`, `system_upgrade_controller_version_format`, `remote_manifest_downloads_required_for_selected_features`, `rke2_version_format_when_pinned`, `auto_updates_require_ha`, `harmony_requires_cert_manager`, `harmony_requires_workers_for_lb`, `dns_requires_zone_id`, `dns_requires_harmony_ingress`.
+Covers: `aws_credentials_pair_consistency`, `letsencrypt_email_required_when_issuer_enabled`, `system_upgrade_controller_version_format`, `remote_manifest_downloads_required_for_selected_features`, `rke2_version_format_when_pinned`, `auto_updates_require_ha`, `harmony_requires_cert_manager`, `harmony_requires_workers_for_lb`, `etcd_backup_requires_s3_config`, `longhorn_csi_default_storage_conflict`, `longhorn_experimental_warning`, `longhorn_backup_requires_s3_config`, `longhorn_requires_minimum_workers`, `dns_requires_zone_id`, `dns_requires_harmony_ingress`.
 
 #### 3. Conditional Logic (UT-C*)
 
 Tests that conditional `count` and `for_each` expressions produce expected resource counts for all major feature toggles.
 
-Covers: Harmony on/off, master counts (1/3/5), worker counts (0/N), SSH on LB, cert-manager, HCCM, CSI, SSH key file, DNS, ingress LB targets, kured/self-maintenance.
+Covers: Harmony on/off, master counts (1/3/5), worker counts (0/N), SSH on LB, cert-manager, HCCM, CSI, SSH key file, DNS, ingress LB targets, kured/self-maintenance, pre-upgrade snapshots, Longhorn on/off, Longhorn S3 secret, Longhorn outputs.
 
 #### 4. Example Validation (UT-E*)
 
@@ -168,7 +168,10 @@ Tests that example configurations in `examples/` produce valid plans.
 | Ingress LB targets | — | — | 1 | 1 |
 | Control-plane LB | — | — | 1 | 1 |
 | Output: ingress_lb_ipv4 | — | — | 1 | 1 |
+| etcd backup | — | 3 | 2 | 5 |
+| Longhorn | — | 6 | 6 | 12 |
 | Example: minimal | — | — | — | 1 |
+| Example: openedx-tutor | — | — | — | 1 |
 
 ## CI Integration
 
@@ -231,7 +234,7 @@ mock_provider "remote" {
 
 | Limitation | Reason | Impact |
 |-----------|--------|--------|
-| DNS check blocks not testable | `aws_route53_record` schema rejects empty `zone_id` at provider level — not catchable by `expect_failures` | 2 of 10 check blocks tested only via code review |
+| DNS check blocks not testable | `aws_route53_record` schema rejects empty `zone_id` at provider level — not catchable by `expect_failures` | 2 of 15 check blocks tested only via code review |
 | `kured_not_deployed_on_single_master` uses `expect_failures` | Setting `enable_auto_os_updates=true` + `master_node_count=1` triggers `check.auto_updates_require_ha` warning alongside the conditional count | Cannot assert `length(helm_release.kured) == 0` in same run block that expects a check failure |
 | Mock providers do not validate Helm chart values | `helm_release` with mocked provider accepts any values without schema checking | Helm values correctness requires E2E tests |
 
@@ -246,7 +249,7 @@ mock_provider "remote" {
 
 ## Full Test Inventory
 
-### Variable Validations (variables_and_guardrails.tftest.hcl)
+### Variable Validations (variables.tftest.hcl)
 
 | ID | Test Name | Type | Target |
 |----|-----------|:----:|--------|
@@ -274,7 +277,7 @@ mock_provider "remote" {
 | UT-V13b | `k8s_api_cidrs_rejects_empty` | ❌ negative | `var.k8s_api_allowed_cidrs` |
 | UT-V13c | `k8s_api_cidrs_rejects_invalid` | ❌ negative | `var.k8s_api_allowed_cidrs` |
 
-### Guardrails (variables_and_guardrails.tftest.hcl)
+### Guardrails (guardrails.tftest.hcl)
 
 | ID | Test Name | Type | Target Check Block |
 |----|-----------|:----:|--------------------|
@@ -294,6 +297,18 @@ mock_provider "remote" {
 | UT-G06b | `auto_updates_passes_on_ha` | ✅ positive | `check.auto_updates_require_ha` |
 | UT-G07 | `harmony_requires_cert_manager` | ❌ negative | `check.harmony_requires_cert_manager` |
 | UT-G08 | `harmony_requires_workers` | ❌ negative | `check.harmony_requires_workers_for_lb` |
+| UT-G09a | `etcd_backup_rejects_missing_s3` | ❌ negative | `check.etcd_backup_requires_s3_config` |
+| UT-G09b | `etcd_backup_passes_with_s3` | ✅ positive | `check.etcd_backup_requires_s3_config` |
+| UT-G09c | `etcd_backup_passes_when_disabled` | ✅ positive | `check.etcd_backup_requires_s3_config` |
+| UT-G14a | `longhorn_and_csi_both_default_rejects` | ❌ negative | `check.longhorn_csi_default_storage_conflict` |
+| UT-G14b | `longhorn_default_csi_not_default_passes` | ✅ positive | `check.longhorn_csi_default_storage_conflict` |
+| UT-G15a | `longhorn_experimental_warning_fires` | ❌ negative | `check.longhorn_experimental_warning` |
+| UT-G15b | `longhorn_experimental_warning_does_not_fire_when_disabled` | ✅ positive | `check.longhorn_experimental_warning` |
+| UT-G16a | `longhorn_backup_rejects_missing_s3` | ❌ negative | `check.longhorn_backup_requires_s3_config` |
+| UT-G16b | `longhorn_backup_passes_with_s3` | ✅ positive | `check.longhorn_backup_requires_s3_config` |
+| UT-G16c | `longhorn_backup_passes_without_target` | ✅ positive | `check.longhorn_backup_requires_s3_config` |
+| UT-G17a | `longhorn_rejects_insufficient_workers` | ❌ negative | `check.longhorn_requires_minimum_workers` |
+| UT-G17b | `longhorn_passes_with_enough_workers` | ✅ positive | `check.longhorn_requires_minimum_workers` |
 | — | *(dns_requires_zone_id)* | ⚠️ skipped | See [Known Limitations](#known-limitations) |
 | — | *(dns_requires_harmony_ingress)* | ⚠️ skipped | See [Known Limitations](#known-limitations) |
 
@@ -323,6 +338,15 @@ mock_provider "remote" {
 | UT-C20 | `output_ingress_null_when_harmony_disabled` | ingress_lb_ipv4=null |
 | UT-C21 | `kured_not_deployed_on_single_master` | expect_failures: auto_updates check |
 | UT-C22 | `kured_deployed_on_ha_with_auto_updates` | kured helm=1, kured namespace=1 |
+| UT-C25 | `pre_upgrade_snapshot_disabled_by_default` | pre_upgrade_snapshot=0 |
+| UT-C26 | `pre_upgrade_snapshot_enabled_with_etcd_backup` | pre_upgrade_snapshot=1 |
+| UT-C27 | `outputs_reflect_backup_state` | etcd_backup_enabled, longhorn_enabled, storage_driver outputs |
+| UT-C28 | `longhorn_disabled_by_default` | longhorn namespace=0, longhorn helm=0 |
+| UT-C29 | `longhorn_enabled_creates_resources` | longhorn namespace=1, longhorn helm=1 |
+| UT-C30a | `longhorn_s3_secret_not_created_without_backup` | longhorn s3 secret=0 |
+| UT-C30b | `longhorn_s3_secret_created_with_backup` | longhorn s3 secret=1 |
+| UT-C31a | `longhorn_outputs_reflect_enabled_state` | longhorn_enabled=true, storage_driver="longhorn" |
+| UT-C31b | `longhorn_outputs_reflect_disabled_state` | longhorn_enabled=false, storage_driver="hcloud-csi" |
 
 ### Example Patterns (examples.tftest.hcl)
 

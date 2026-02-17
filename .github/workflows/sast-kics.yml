@@ -9,7 +9,6 @@ name: "SAST: KICS"
 
 on:
   push:
-    branches: [main]
   pull_request:
     branches: [main]
 

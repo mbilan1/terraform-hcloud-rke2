@@ -1,5 +1,5 @@
 resource "kubernetes_namespace_v1" "cert_manager" {
-  depends_on = [null_resource.wait_for_cluster_ready]
+  depends_on = [terraform_data.wait_for_infrastructure]
   count      = var.cluster_configuration.cert_manager.preinstall ? 1 : 0
   metadata {
     name = "cert-manager"

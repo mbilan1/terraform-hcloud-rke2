@@ -66,7 +66,7 @@ mock_provider "aws" {}
 mock_provider "kubectl" {}
 mock_provider "kubernetes" {}
 mock_provider "helm" {}
-mock_provider "null" {}
+mock_provider "cloudinit" {}
 mock_provider "random" {}
 mock_provider "tls" {}
 mock_provider "local" {}
@@ -87,17 +87,17 @@ run "harmony_disabled_no_ingress_lb" {
   }
 
   assert {
-    condition     = length(hcloud_load_balancer.ingress) == 0
+    condition     = length(module.infrastructure.hcloud_load_balancer.ingress) == 0
     error_message = "Ingress LB should not be created when harmony is disabled."
   }
 
   assert {
-    condition     = length(kubernetes_namespace_v1.harmony) == 0
+    condition     = length(module.addons.kubernetes_namespace_v1.harmony) == 0
     error_message = "Harmony namespace should not be created when harmony is disabled."
   }
 
   assert {
-    condition     = length(helm_release.harmony) == 0
+    condition     = length(module.addons.helm_release.harmony) == 0
     error_message = "Harmony helm release should not be created when harmony is disabled."
   }
 }
@@ -118,17 +118,17 @@ run "harmony_enabled_creates_ingress_lb" {
   }
 
   assert {
-    condition     = length(hcloud_load_balancer.ingress) == 1
+    condition     = length(module.infrastructure.hcloud_load_balancer.ingress) == 1
     error_message = "Ingress LB must be created when harmony is enabled."
   }
 
   assert {
-    condition     = length(kubernetes_namespace_v1.harmony) == 1
+    condition     = length(module.addons.kubernetes_namespace_v1.harmony) == 1
     error_message = "Harmony namespace must be created when harmony is enabled."
   }
 
   assert {
-    condition     = length(helm_release.harmony) == 1
+    condition     = length(module.addons.helm_release.harmony) == 1
     error_message = "Harmony helm release must be created when harmony is enabled."
   }
 }
@@ -149,7 +149,7 @@ run "harmony_disables_builtin_ingress" {
   }
 
   assert {
-    condition     = length(kubectl_manifest.ingress_configuration) == 0
+    condition     = length(module.addons.kubectl_manifest.ingress_configuration) == 0
     error_message = "RKE2 built-in ingress HelmChartConfig must not exist when harmony is enabled."
   }
 }
@@ -169,7 +169,7 @@ run "harmony_disabled_uses_builtin_ingress" {
   }
 
   assert {
-    condition     = length(kubectl_manifest.ingress_configuration) == 1
+    condition     = length(module.addons.kubectl_manifest.ingress_configuration) == 1
     error_message = "RKE2 built-in ingress HelmChartConfig must exist when harmony is disabled."
   }
 }
@@ -187,12 +187,12 @@ run "single_master_no_additional" {
   }
 
   assert {
-    condition     = length(hcloud_server.additional_masters) == 0
+    condition     = length(module.infrastructure.hcloud_server.additional_masters) == 0
     error_message = "No additional masters should be created when master_node_count = 1."
   }
 
   assert {
-    condition     = length(hcloud_server.master) == 1
+    condition     = length(module.infrastructure.hcloud_server.master) == 1
     error_message = "Exactly one bootstrap master must always be created."
   }
 }
@@ -210,7 +210,7 @@ run "ha_cluster_creates_additional_masters" {
   }
 
   assert {
-    condition     = length(hcloud_server.additional_masters) == 4
+    condition     = length(module.infrastructure.hcloud_server.additional_masters) == 4
     error_message = "HA cluster with 5 masters should create 4 additional masters (1 bootstrap + 4)."
   }
 }
@@ -228,7 +228,7 @@ run "zero_workers" {
   }
 
   assert {
-    condition     = length(hcloud_server.worker) == 0
+    condition     = length(module.infrastructure.hcloud_server.worker) == 0
     error_message = "No worker nodes should be created when worker_node_count = 0."
   }
 }
@@ -246,7 +246,7 @@ run "workers_correct_count" {
   }
 
   assert {
-    condition     = length(hcloud_server.worker) == 5
+    condition     = length(module.infrastructure.hcloud_server.worker) == 5
     error_message = "Worker count must match worker_node_count."
   }
 }
@@ -263,7 +263,7 @@ run "ssh_on_lb_disabled_by_default" {
   }
 
   assert {
-    condition     = length(hcloud_load_balancer_service.cp_ssh) == 0
+    condition     = length(module.infrastructure.hcloud_load_balancer_service.cp_ssh) == 0
     error_message = "SSH service on control-plane LB should not exist by default."
   }
 }
@@ -281,7 +281,7 @@ run "ssh_on_lb_enabled" {
   }
 
   assert {
-    condition     = length(hcloud_load_balancer_service.cp_ssh) == 1
+    condition     = length(module.infrastructure.hcloud_load_balancer_service.cp_ssh) == 1
     error_message = "SSH service on control-plane LB must exist when enable_ssh_on_lb = true."
   }
 }
@@ -303,12 +303,12 @@ run "certmanager_disabled" {
   }
 
   assert {
-    condition     = length(kubernetes_namespace_v1.cert_manager) == 0
+    condition     = length(module.addons.kubernetes_namespace_v1.cert_manager) == 0
     error_message = "cert-manager namespace should not exist when preinstall = false."
   }
 
   assert {
-    condition     = length(helm_release.cert_manager) == 0
+    condition     = length(module.addons.helm_release.cert_manager) == 0
     error_message = "cert-manager helm release should not exist when preinstall = false."
   }
 }
@@ -325,12 +325,12 @@ run "certmanager_enabled_by_default" {
   }
 
   assert {
-    condition     = length(kubernetes_namespace_v1.cert_manager) == 1
+    condition     = length(module.addons.kubernetes_namespace_v1.cert_manager) == 1
     error_message = "cert-manager namespace must exist when preinstall = true (default)."
   }
 
   assert {
-    condition     = length(helm_release.cert_manager) == 1
+    condition     = length(module.addons.helm_release.cert_manager) == 1
     error_message = "cert-manager helm release must exist when preinstall = true (default)."
   }
 }
@@ -352,12 +352,12 @@ run "hccm_disabled" {
   }
 
   assert {
-    condition     = length(kubernetes_secret_v1.hcloud_ccm) == 0
+    condition     = length(module.addons.kubernetes_secret_v1.hcloud_ccm) == 0
     error_message = "HCCM secret should not exist when preinstall = false."
   }
 
   assert {
-    condition     = length(helm_release.hccm) == 0
+    condition     = length(module.addons.helm_release.hccm) == 0
     error_message = "HCCM helm release should not exist when preinstall = false."
   }
 }
@@ -379,7 +379,7 @@ run "csi_disabled" {
   }
 
   assert {
-    condition     = length(helm_release.hcloud_csi) == 0
+    condition     = length(module.addons.helm_release.hcloud_csi) == 0
     error_message = "CSI helm release should not exist when preinstall = false."
   }
 }
@@ -396,7 +396,7 @@ run "ssh_key_file_disabled_by_default" {
   }
 
   assert {
-    condition     = length(local_sensitive_file.ssh_private_key) == 0
+    condition     = length(module.infrastructure.local_sensitive_file.ssh_private_key) == 0
     error_message = "SSH key file should not be generated by default."
   }
 }
@@ -414,7 +414,7 @@ run "ssh_key_file_enabled" {
   }
 
   assert {
-    condition     = length(local_sensitive_file.ssh_private_key) == 1
+    condition     = length(module.infrastructure.local_sensitive_file.ssh_private_key) == 1
     error_message = "SSH key file must be generated when generate_ssh_key_file = true."
   }
 }
@@ -431,7 +431,7 @@ run "dns_disabled_by_default" {
   }
 
   assert {
-    condition     = length(aws_route53_record.wildcard) == 0
+    condition     = length(module.infrastructure.aws_route53_record.wildcard) == 0
     error_message = "Route53 record should not be created by default."
   }
 }
@@ -452,7 +452,7 @@ run "ingress_lb_targets_match_workers" {
   }
 
   assert {
-    condition     = length(hcloud_load_balancer_target.ingress_workers) == 4
+    condition     = length(module.infrastructure.hcloud_load_balancer_target.ingress_workers) == 4
     error_message = "Ingress LB worker targets must match worker_node_count."
   }
 }
@@ -469,7 +469,7 @@ run "control_plane_lb_always_exists" {
   }
 
   assert {
-    condition     = hcloud_load_balancer.control_plane.name == "rke2-cp-lb"
+    condition     = module.infrastructure.hcloud_load_balancer.control_plane.name == "rke2-cp-lb"
     error_message = "Control-plane LB must always be created with correct name."
   }
 }
@@ -526,63 +526,13 @@ run "kured_deployed_on_ha_with_auto_updates" {
   }
 
   assert {
-    condition     = length(helm_release.kured) == 1
+    condition     = length(module.addons.helm_release.kured) == 1
     error_message = "Kured must be deployed on HA cluster when enable_auto_os_updates = true."
   }
 
   assert {
-    condition     = length(kubernetes_namespace_v1.kured) == 1
+    condition     = length(module.addons.kubernetes_namespace_v1.kured) == 1
     error_message = "Kured namespace must be created on HA cluster when enable_auto_os_updates = true."
-  }
-}
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  UT-C23: Velero disabled (default) — no Velero resources                   ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-run "velero_disabled_by_default" {
-  command = plan
-
-  variables {
-    hetzner_token = "mock-token"
-    domain        = "test.example.com"
-  }
-
-  assert {
-    condition     = length(kubernetes_namespace_v1.velero) == 0
-    error_message = "Velero namespace should not exist when velero is disabled (default)."
-  }
-
-  assert {
-    condition     = length(helm_release.velero) == 0
-    error_message = "Velero helm release should not exist when velero is disabled (default)."
-  }
-}
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  UT-C24: Velero enabled — namespace + helm release created                 ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-run "velero_enabled_creates_resources" {
-  command = plan
-
-  variables {
-    hetzner_token = "mock-token"
-    domain        = "test.example.com"
-    velero = {
-      enabled       = true
-      s3_bucket     = "my-velero-bucket"
-      s3_access_key = "AKIAEXAMPLE"
-      s3_secret_key = "secretkey123"
-    }
-  }
-
-  assert {
-    condition     = length(kubernetes_namespace_v1.velero) == 1
-    error_message = "Velero namespace must be created when velero is enabled."
-  }
-
-  assert {
-    condition     = length(helm_release.velero) == 1
-    error_message = "Velero helm release must be created when velero is enabled."
   }
 }
 
@@ -598,7 +548,7 @@ run "pre_upgrade_snapshot_disabled_by_default" {
   }
 
   assert {
-    condition     = length(null_resource.pre_upgrade_snapshot) == 0
+    condition     = length(module.infrastructure.terraform_data.pre_upgrade_snapshot) == 0
     error_message = "Pre-upgrade snapshot should not exist when etcd backup is disabled (default)."
   }
 }
@@ -623,13 +573,13 @@ run "pre_upgrade_snapshot_enabled_with_etcd_backup" {
   }
 
   assert {
-    condition     = length(null_resource.pre_upgrade_snapshot) == 1
+    condition     = length(module.infrastructure.terraform_data.pre_upgrade_snapshot) == 1
     error_message = "Pre-upgrade snapshot must be created when etcd backup is enabled."
   }
 }
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  UT-C27: Outputs — etcd_backup_enabled and velero_enabled reflect state    ║
+# ║  UT-C27: Outputs — etcd_backup_enabled reflects state                      ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 run "outputs_reflect_backup_state" {
   command = plan
@@ -637,12 +587,6 @@ run "outputs_reflect_backup_state" {
   variables {
     hetzner_token = "mock-token"
     domain        = "test.example.com"
-    velero = {
-      enabled       = true
-      s3_bucket     = "my-velero-bucket"
-      s3_access_key = "AKIAEXAMPLE"
-      s3_secret_key = "secretkey123"
-    }
     cluster_configuration = {
       etcd_backup = {
         enabled       = true
@@ -657,9 +601,189 @@ run "outputs_reflect_backup_state" {
     condition     = output.etcd_backup_enabled == true
     error_message = "etcd_backup_enabled output must be true when etcd backup is enabled."
   }
+}
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  UT-C28: Longhorn disabled by default — no resources created               ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+run "longhorn_disabled_by_default" {
+  command = plan
+
+  variables {
+    hetzner_token = "mock-token"
+    domain        = "test.example.com"
+  }
 
   assert {
-    condition     = output.velero_enabled == true
-    error_message = "velero_enabled output must be true when velero is enabled."
+    condition     = length(module.addons.kubernetes_namespace_v1.longhorn) == 0
+    error_message = "Longhorn namespace should not be created when Longhorn is disabled (default)."
+  }
+
+  assert {
+    condition     = length(module.addons.helm_release.longhorn) == 0
+    error_message = "Longhorn helm release should not be created when Longhorn is disabled (default)."
+  }
+
+  assert {
+    condition     = length(module.addons.kubernetes_secret_v1.longhorn_s3) == 0
+    error_message = "Longhorn S3 secret should not be created when Longhorn is disabled (default)."
+  }
+
+  assert {
+    condition     = length(module.addons.kubectl_manifest.longhorn_iscsi_installer) == 0
+    error_message = "Longhorn iSCSI installer should not be created when Longhorn is disabled (default)."
+  }
+
+  assert {
+    condition     = length(module.addons.kubernetes_labels.longhorn_worker) == 0
+    error_message = "Longhorn worker labels should not be created when Longhorn is disabled (default)."
+  }
+
+  assert {
+    condition     = length(module.addons.terraform_data.longhorn_health_check) == 0
+    error_message = "Longhorn health check should not be created when Longhorn is disabled (default)."
+  }
+
+  assert {
+    condition     = length(module.addons.terraform_data.longhorn_pre_upgrade_snapshot) == 0
+    error_message = "Longhorn pre-upgrade snapshot should not be created when Longhorn is disabled (default)."
+  }
+}
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  UT-C29: Longhorn enabled — namespace, helm release created                ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+run "longhorn_enabled_creates_resources" {
+  command = plan
+
+  variables {
+    hetzner_token = "mock-token"
+    domain        = "test.example.com"
+    cluster_configuration = {
+      longhorn = {
+        preinstall = true
+      }
+    }
+  }
+
+  assert {
+    condition     = length(module.addons.kubernetes_namespace_v1.longhorn) == 1
+    error_message = "Longhorn namespace must be created when Longhorn is enabled."
+  }
+
+  assert {
+    condition     = length(module.addons.helm_release.longhorn) == 1
+    error_message = "Longhorn helm release must be created when Longhorn is enabled."
+  }
+
+  assert {
+    condition     = length(module.addons.kubectl_manifest.longhorn_iscsi_installer) == 1
+    error_message = "Longhorn iSCSI installer must be created when Longhorn is enabled."
+  }
+
+  assert {
+    condition     = length(module.addons.kubernetes_labels.longhorn_worker) == 3
+    error_message = "Longhorn worker labels must match worker_node_count (default 3)."
+  }
+
+  assert {
+    condition     = length(module.addons.terraform_data.longhorn_health_check) == 1
+    error_message = "Longhorn health check must be created when Longhorn is enabled."
+  }
+
+  assert {
+    condition     = length(module.addons.terraform_data.longhorn_pre_upgrade_snapshot) == 1
+    error_message = "Longhorn pre-upgrade snapshot must be created when Longhorn is enabled."
+  }
+}
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  UT-C30: Longhorn S3 secret — only created with backup_target             ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+run "longhorn_s3_secret_not_created_without_backup" {
+  command = plan
+
+  variables {
+    hetzner_token = "mock-token"
+    domain        = "test.example.com"
+    cluster_configuration = {
+      longhorn = {
+        preinstall = true
+        # backup_target intentionally omitted (empty default)
+      }
+    }
+  }
+
+  assert {
+    condition     = length(module.addons.kubernetes_secret_v1.longhorn_s3) == 0
+    error_message = "Longhorn S3 secret should not be created without a backup target."
+  }
+}
+
+run "longhorn_s3_secret_created_with_backup" {
+  command = plan
+
+  variables {
+    hetzner_token = "mock-token"
+    domain        = "test.example.com"
+    cluster_configuration = {
+      longhorn = {
+        preinstall    = true
+        backup_target = "s3://my-bucket@eu-central/longhorn-backups"
+        s3_access_key = "AKIAEXAMPLE"
+        s3_secret_key = "secretkey123"
+      }
+    }
+  }
+
+  assert {
+    condition     = length(module.addons.kubernetes_secret_v1.longhorn_s3) == 1
+    error_message = "Longhorn S3 secret must be created when backup target is set."
+  }
+}
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  UT-C31: Longhorn outputs reflect state                                    ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+run "longhorn_outputs_reflect_enabled_state" {
+  command = plan
+
+  variables {
+    hetzner_token = "mock-token"
+    domain        = "test.example.com"
+    cluster_configuration = {
+      longhorn = {
+        preinstall = true
+      }
+    }
+  }
+
+  assert {
+    condition     = output.longhorn_enabled == true
+    error_message = "longhorn_enabled output must be true when Longhorn is enabled."
+  }
+
+  assert {
+    condition     = output.storage_driver == "longhorn"
+    error_message = "storage_driver output must be 'longhorn' when Longhorn is enabled."
+  }
+}
+
+run "longhorn_outputs_reflect_disabled_state" {
+  command = plan
+
+  variables {
+    hetzner_token = "mock-token"
+    domain        = "test.example.com"
+  }
+
+  assert {
+    condition     = output.longhorn_enabled == false
+    error_message = "longhorn_enabled output must be false when Longhorn is disabled."
+  }
+
+  assert {
+    condition     = output.storage_driver == "hcloud-csi"
+    error_message = "storage_driver output must be 'hcloud-csi' when Longhorn is disabled."
   }
 }

@@ -1,5 +1,5 @@
 resource "kubernetes_namespace_v1" "kured" {
-  depends_on = [null_resource.wait_for_cluster_ready]
+  depends_on = [terraform_data.wait_for_infrastructure]
   count      = var.enable_auto_os_updates && local.is_ha_cluster ? 1 : 0
   metadata {
     name = "kured"
@@ -9,16 +9,6 @@ resource "kubernetes_namespace_v1" "kured" {
     ignore_changes = [
       metadata[0].annotations,
     ]
-  }
-}
-
-# Warn when auto-update flags are true but cluster is non-HA (single master).
-# Kured and System Upgrade Controller are only deployed on HA clusters (>= 3 masters)
-# because rebooting/upgrading a single control-plane node causes full downtime.
-check "auto_updates_require_ha" {
-  assert {
-    condition     = local.is_ha_cluster || (!var.enable_auto_os_updates && !var.enable_auto_kubernetes_updates)
-    error_message = "enable_auto_os_updates and enable_auto_kubernetes_updates have no effect on non-HA clusters (master_node_count < 3). Kured and System Upgrade Controller are only deployed on HA clusters."
   }
 }
 
@@ -38,7 +28,7 @@ data "http" "system_upgrade_controller_crds" {
 }
 
 resource "kubectl_manifest" "system_upgrade_controller_crds" {
-  depends_on = [null_resource.wait_for_cluster_ready]
+  depends_on = [terraform_data.wait_for_infrastructure]
   for_each   = var.enable_auto_kubernetes_updates && local.is_ha_cluster && var.allow_remote_manifest_downloads ? { for i in local.system_upgrade_controller_crds : index(local.system_upgrade_controller_crds, i) => i } : {}
   yaml_body  = each.value
 }
@@ -49,13 +39,13 @@ data "http" "system_upgrade_controller" {
 }
 
 resource "kubectl_manifest" "system_upgrade_controller_ns" {
-  depends_on = [null_resource.wait_for_cluster_ready, kubectl_manifest.system_upgrade_controller_crds]
+  depends_on = [terraform_data.wait_for_infrastructure, kubectl_manifest.system_upgrade_controller_crds]
   for_each   = var.enable_auto_kubernetes_updates && local.is_ha_cluster && var.allow_remote_manifest_downloads ? { for i in local.system_upgrade_controller_components : index(local.system_upgrade_controller_components, i) => i if strcontains(i, "kind: Namespace") } : {}
   yaml_body  = each.value
 }
 
 resource "kubectl_manifest" "system_upgrade_controller" {
-  depends_on = [null_resource.wait_for_cluster_ready, kubectl_manifest.system_upgrade_controller_crds, kubectl_manifest.system_upgrade_controller_ns]
+  depends_on = [terraform_data.wait_for_infrastructure, kubectl_manifest.system_upgrade_controller_crds, kubectl_manifest.system_upgrade_controller_ns]
   for_each   = var.enable_auto_kubernetes_updates && local.is_ha_cluster && var.allow_remote_manifest_downloads ? { for i in local.system_upgrade_controller_components : index(local.system_upgrade_controller_components, i) => i if !strcontains(i, "kind: Namespace") } : {}
   yaml_body  = each.value
 }

@@ -18,6 +18,14 @@ terraform {
       source  = "gavinbunney/kubectl"
       version = "~> 1.19"
     }
+    # DECISION: cloudinit_config data source for structured multipart MIME cloud-init.
+    # Why: HashiCorp best practice — write_files for config, shell for runtime logic.
+    # Replaces raw shell scripts in user_data with proper cloud-config structure.
+    # See: https://developer.hashicorp.com/terraform/language/post-apply-operations
+    cloudinit = {
+      source  = "hashicorp/cloudinit"
+      version = "~> 2.3"
+    }
     kubernetes = {
       source  = "hashicorp/kubernetes"
       version = ">= 2.23"
@@ -25,10 +33,6 @@ terraform {
     helm = {
       source  = "hashicorp/helm"
       version = ">= 2.11"
-    }
-    null = {
-      source  = "hashicorp/null"
-      version = "~> 3.2"
     }
     random = {
       source  = "hashicorp/random"
@@ -68,27 +72,27 @@ provider "aws" {
 
 provider "helm" {
   kubernetes = {
-    host = local.cluster_host
+    host = module.infrastructure.cluster_host
 
-    client_certificate     = local.client_cert
-    client_key             = local.client_key
-    cluster_ca_certificate = local.cluster_ca
+    client_certificate     = module.infrastructure.client_cert
+    client_key             = module.infrastructure.client_key
+    cluster_ca_certificate = module.infrastructure.cluster_ca
   }
 }
 
 provider "kubectl" {
-  host = local.cluster_host
+  host = module.infrastructure.cluster_host
 
-  client_certificate     = local.client_cert
-  client_key             = local.client_key
-  cluster_ca_certificate = local.cluster_ca
+  client_certificate     = module.infrastructure.client_cert
+  client_key             = module.infrastructure.client_key
+  cluster_ca_certificate = module.infrastructure.cluster_ca
   load_config_file       = false
 }
 
 provider "kubernetes" {
-  host = local.cluster_host
+  host = module.infrastructure.cluster_host
 
-  client_certificate     = local.client_cert
-  client_key             = local.client_key
-  cluster_ca_certificate = local.cluster_ca
+  client_certificate     = module.infrastructure.client_cert
+  client_key             = module.infrastructure.client_key
+  cluster_ca_certificate = module.infrastructure.cluster_ca
 }

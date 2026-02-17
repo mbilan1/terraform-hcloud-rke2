@@ -71,7 +71,7 @@ mock_provider "aws" {}
 mock_provider "kubectl" {}
 mock_provider "kubernetes" {}
 mock_provider "helm" {}
-mock_provider "null" {}
+mock_provider "cloudinit" {}
 mock_provider "random" {}
 mock_provider "tls" {}
 mock_provider "local" {}
@@ -383,74 +383,179 @@ run "etcd_backup_passes_when_disabled" {
 }
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  UT-G12: velero_requires_s3_config                                         ║
-# ║  Velero enabled without S3 credentials → warning                           ║
+# ║  UT-G14: longhorn_and_csi_default_sc_exclusivity                           ║
+# ║  Both Longhorn and CSI as default StorageClass → warning                   ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
-run "velero_rejects_missing_s3" {
+run "longhorn_and_csi_both_default_rejects" {
   command = plan
 
   variables {
     hetzner_token = "mock-token"
     domain        = "test.example.com"
-    velero = {
-      enabled = true
-      # s3_bucket, s3_access_key, s3_secret_key intentionally omitted (empty defaults)
+    cluster_configuration = {
+      longhorn = {
+        preinstall            = true
+        default_storage_class = true
+      }
+      hcloud_csi = {
+        preinstall            = true
+        default_storage_class = true
+      }
     }
   }
 
-  expect_failures = [check.velero_requires_s3_config]
+  expect_failures = [check.longhorn_and_csi_default_sc_exclusivity]
 }
 
-run "velero_passes_with_s3" {
+run "longhorn_default_csi_not_default_passes" {
   command = plan
 
   variables {
     hetzner_token = "mock-token"
     domain        = "test.example.com"
-    velero = {
-      enabled       = true
-      s3_bucket     = "my-velero-bucket"
-      s3_access_key = "AKIAEXAMPLE"
-      s3_secret_key = "secretkey123"
-    }
-  }
-}
-
-run "velero_passes_when_disabled" {
-  command = plan
-
-  variables {
-    hetzner_token = "mock-token"
-    domain        = "test.example.com"
-    velero = {
-      enabled = false
+    cluster_configuration = {
+      longhorn = {
+        preinstall            = true
+        default_storage_class = true
+      }
+      hcloud_csi = {
+        preinstall            = true
+        default_storage_class = false
+      }
     }
   }
 }
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  UT-G13: velero_requires_csi                                               ║
-# ║  Velero enabled without CSI → warning                                      ║
+# ║  UT-G15: longhorn_experimental_warning                                     ║
+# ║  Longhorn enabled → experimental warning                                   ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
-run "velero_rejects_csi_disabled" {
+run "longhorn_experimental_warning_fires" {
   command = plan
 
   variables {
     hetzner_token = "mock-token"
     domain        = "test.example.com"
-    velero = {
-      enabled       = true
-      s3_bucket     = "my-velero-bucket"
-      s3_access_key = "AKIAEXAMPLE"
-      s3_secret_key = "secretkey123"
-    }
     cluster_configuration = {
-      hcloud_csi = {
-        preinstall = false
+      longhorn = {
+        preinstall = true
       }
     }
   }
 
-  expect_failures = [check.velero_requires_csi]
+  expect_failures = [check.longhorn_experimental_warning]
+}
+
+run "longhorn_experimental_warning_does_not_fire_when_disabled" {
+  command = plan
+
+  variables {
+    hetzner_token = "mock-token"
+    domain        = "test.example.com"
+  }
+}
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  UT-G16: longhorn_backup_requires_s3_config                                ║
+# ║  Longhorn backup_target without S3 credentials → warning                   ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+run "longhorn_backup_rejects_missing_s3" {
+  command = plan
+
+  variables {
+    hetzner_token = "mock-token"
+    domain        = "test.example.com"
+    cluster_configuration = {
+      longhorn = {
+        preinstall    = true
+        backup_target = "s3://my-bucket@eu-central/backups"
+        # s3_access_key, s3_secret_key intentionally omitted (empty defaults)
+      }
+    }
+  }
+
+  expect_failures = [check.longhorn_backup_requires_s3_config]
+}
+
+run "longhorn_backup_passes_with_s3" {
+  command = plan
+
+  variables {
+    hetzner_token = "mock-token"
+    domain        = "test.example.com"
+    cluster_configuration = {
+      longhorn = {
+        preinstall    = true
+        backup_target = "s3://my-bucket@eu-central/backups"
+        s3_access_key = "AKIAEXAMPLE"
+        s3_secret_key = "secretkey123"
+      }
+    }
+  }
+
+  # NOTE: This also expects the experimental warning (it always fires when enabled)
+  expect_failures = [check.longhorn_experimental_warning]
+}
+
+run "longhorn_backup_passes_without_target" {
+  command = plan
+
+  variables {
+    hetzner_token = "mock-token"
+    domain        = "test.example.com"
+    cluster_configuration = {
+      longhorn = {
+        preinstall = true
+        # No backup_target → S3 config not required
+      }
+    }
+  }
+
+  # NOTE: Experimental warning still fires
+  expect_failures = [check.longhorn_experimental_warning]
+}
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  UT-G17: longhorn_minimum_workers                                          ║
+# ║  Longhorn RF=2 with only 1 worker → warning                               ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+run "longhorn_rejects_insufficient_workers" {
+  command = plan
+
+  variables {
+    hetzner_token     = "mock-token"
+    domain            = "test.example.com"
+    worker_node_count = 1
+    cluster_configuration = {
+      longhorn = {
+        preinstall    = true
+        replica_count = 2
+      }
+    }
+  }
+
+  expect_failures = [
+    check.longhorn_minimum_workers,
+    check.longhorn_experimental_warning,
+  ]
+}
+
+run "longhorn_passes_with_enough_workers" {
+  command = plan
+
+  variables {
+    hetzner_token     = "mock-token"
+    domain            = "test.example.com"
+    worker_node_count = 3
+    cluster_configuration = {
+      longhorn = {
+        preinstall    = true
+        replica_count = 2
+      }
+    }
+  }
+
+  # Only the experimental warning should fire, not the minimum workers check
+  expect_failures = [check.longhorn_experimental_warning]
 }
 

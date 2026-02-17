@@ -3,7 +3,7 @@
 # RKE2 built-in ingress controller (harmony.enabled = false).
 resource "kubectl_manifest" "ingress_configuration" {
   count      = var.harmony.enabled ? 0 : 1
-  depends_on = [null_resource.wait_for_cluster_ready]
+  depends_on = [terraform_data.wait_for_infrastructure]
   yaml_body = templatefile("${path.module}/templates/values/ingress_controller.yaml", {
     enable_modsecurity = var.enable_nginx_modsecurity_waf
     proxy_body_size    = var.nginx_ingress_proxy_body_size

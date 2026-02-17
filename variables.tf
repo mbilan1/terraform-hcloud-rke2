@@ -194,6 +194,35 @@ variable "cluster_configuration" {
       s3_region             = optional(string, "eu-central")
       s3_bucket_lookup_type = optional(string, "path") # "path" required for Hetzner Object Storage
     }), {})
+    # DECISION: Longhorn as primary storage driver with native backup
+    # Why: Replication across workers (HA). Local NVMe IOPS (~50K vs ~10K).
+    #      Native VolumeSnapshot (Hetzner CSI has none — issue #849).
+    #      Integrated storage + backup in single component. Instant pre-upgrade snapshots.
+    #      Fewer components in restore path compared to external backup tools.
+    # DECISION: Longhorn replaces Hetzner CSI as primary storage driver
+    # Why: Replication across workers (HA). Local NVMe IOPS (~50K vs ~10K).
+    #      VolumeSnapshot support. Native S3 backup.
+    # NOTE: Longhorn is marked EXPERIMENTAL. Hetzner CSI retained as fallback.
+    # TODO: Promote Longhorn to default after battle-tested in production.
+    # See: docs/PLAN-operational-readiness.md — Step 2
+    longhorn = optional(object({
+      version               = optional(string, "1.7.3")
+      preinstall            = optional(bool, false)           # Experimental, disabled by default
+      replica_count         = optional(number, 2)             # 2 = balance between safety and disk usage
+      default_storage_class = optional(bool, true)            # Make longhorn the default SC
+      backup_target         = optional(string, "")            # S3 URL: s3://bucket@region/folder
+      backup_schedule       = optional(string, "0 */6 * * *") # Every 6h, matches etcd schedule
+      backup_retain         = optional(number, 10)            # Keep 10 backups
+      s3_endpoint           = optional(string, "")            # Auto-filled from lb_location if empty
+      s3_access_key         = optional(string, "")
+      s3_secret_key         = optional(string, "")
+
+      # Tuning (see PLAN-operational-readiness.md Appendix A)
+      guaranteed_instance_manager_cpu = optional(number, 12)  # % of node CPU for instance managers
+      storage_over_provisioning       = optional(number, 100) # % — 100 = no overprovisioning
+      storage_minimal_available       = optional(number, 15)  # % — minimum free disk before Longhorn stops scheduling
+      snapshot_max_count              = optional(number, 5)   # Max snapshots per volume before auto-cleanup
+    }), {})
   })
   default     = {}
   description = "Define the cluster configuration. (See README.md for more information.)"
@@ -298,7 +327,7 @@ variable "harmony" {
 #
 # Why default to open (0.0.0.0/0) instead of closed ([]):
 #
-# 1. The module uses null_resource provisioners (wait_for_api, wait_for_cluster_ready)
+# 1. The module uses terraform_data provisioners (wait_for_api, wait_for_cluster_ready)
 #    and data.remote_file (kubeconfig) that SSH into master[0] over its PUBLIC IP.
 #    If SSH is blocked by the firewall, `tofu apply` hangs indefinitely.
 #
@@ -372,43 +401,7 @@ variable "enable_secrets_encryption" {
   description = "Enable Kubernetes Secrets encryption at rest in etcd. Strongly recommended for production."
 }
 
-# DECISION: Velero + Kopia for PVC backup (Hetzner CSI has no VolumeSnapshot)
-# Why: Hetzner CSI does not support VolumeSnapshot (GitHub issue #849).
-#      Kopia is the sole uploader since Velero v1.17 (Restic removed).
-# See: https://github.com/hetznercloud/csi-driver/issues/849
-# See: https://velero.io/docs/main/file-system-backup/
-variable "velero" {
-  type = object({
-    enabled               = optional(bool, false)
-    version               = optional(string, "11.3.2")      # Helm chart version (app version: v1.17.1)
-    plugin_version        = optional(string, "v1.13.2")     # velero-plugin-for-aws version (must match Velero app version)
-    backup_schedule       = optional(string, "0 */6 * * *") # Synchronized with etcd schedule
-    backup_ttl            = optional(string, "720h")        # 30 days retention
-    s3_endpoint           = optional(string, "")            # Auto-filled from lb_location if empty
-    s3_bucket             = optional(string, "")
-    s3_access_key         = optional(string, "")
-    s3_secret_key         = optional(string, "")
-    s3_region             = optional(string, "eu-central")
-    s3_bucket_lookup_type = optional(string, "path") # "path" required for Hetzner Object Storage
-    extra_values          = optional(list(string), [])
-  })
-  default     = {}
-  sensitive   = false # But s3_access_key/s3_secret_key are passed to Helm via sensitive values
-  description = <<-EOT
-    Velero backup infrastructure for PVC data protection.
-    Uses Kopia file-level backup (Hetzner CSI does not support VolumeSnapshot).
-    Targets S3-compatible storage (Hetzner Object Storage recommended).
 
-    IMPORTANT: velero-plugin-for-aws plugin_version must match the Velero app
-    version shipped in the chart. Chart 11.3.2 ships Velero v1.17.1, which
-    requires plugin v1.13.x. See compatibility matrix:
-    https://github.com/vmware-tanzu/velero-plugin-for-aws#compatibility
-
-    NOTE: S3 credentials are independent from etcd_backup S3 credentials.
-    Each component manages its own config (module self-contained addon pattern).
-    Share credentials at the module invocation level if desired.
-  EOT
-}
 
 variable "health_check_urls" {
   type        = list(string)

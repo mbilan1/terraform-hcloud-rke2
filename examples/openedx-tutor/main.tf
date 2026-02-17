@@ -72,14 +72,6 @@ module "rke2" {
     }
   }
 
-  # Velero PVC backup via Kopia to Hetzner Object Storage
-  velero = {
-    enabled       = var.enable_backups
-    s3_bucket     = var.backup_s3_bucket
-    s3_access_key = var.backup_s3_access_key
-    s3_secret_key = var.backup_s3_secret_key
-  }
-
   # Health check: verify /heartbeat after upgrades
   health_check_urls = var.enable_backups ? ["https://${var.domain}/heartbeat"] : []
 

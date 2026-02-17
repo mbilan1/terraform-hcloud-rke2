@@ -1,5 +1,5 @@
 resource "kubernetes_secret_v1" "hcloud_ccm" {
-  depends_on = [null_resource.wait_for_cluster_ready]
+  depends_on = [terraform_data.wait_for_infrastructure]
   count      = var.cluster_configuration.hcloud_controller.preinstall ? 1 : 0
   metadata {
     name      = "hcloud"
@@ -8,7 +8,7 @@ resource "kubernetes_secret_v1" "hcloud_ccm" {
 
   data = {
     token   = var.hetzner_token
-    network = hcloud_network.main.name
+    network = var.network_name
   }
 
   lifecycle {

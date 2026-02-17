@@ -5,12 +5,16 @@
 # Provides ReadWriteOnce persistent volumes backed by Hetzner Cloud Volumes.
 # The driver reuses the existing "hcloud" secret in kube-system that is also
 # shared with the Hetzner Cloud Controller Manager (HCCM).
+#
+# TODO: Demote Hetzner CSI to optional/legacy after Longhorn is battle-tested.
+#       Do NOT remove — budget and simple deployments still need it.
+# See: docs/PLAN-operational-readiness.md — Appendix C
 # ──────────────────────────────────────────────────────────────────────────────
 
 # The CSI driver requires the same "hcloud" secret as HCCM. When HCCM is
 # disabled but CSI is enabled we must still ensure the secret exists.
 resource "kubernetes_secret_v1" "hcloud_csi" {
-  depends_on = [null_resource.wait_for_cluster_ready]
+  depends_on = [terraform_data.wait_for_infrastructure]
 
   # Only create stand-alone secret when HCCM is NOT creating one.
   count = var.cluster_configuration.hcloud_csi.preinstall && !var.cluster_configuration.hcloud_controller.preinstall ? 1 : 0
@@ -22,7 +26,7 @@ resource "kubernetes_secret_v1" "hcloud_csi" {
 
   data = {
     token   = var.hetzner_token
-    network = hcloud_network.main.name
+    network = var.network_name
   }
 
   lifecycle {
@@ -34,7 +38,7 @@ resource "kubernetes_secret_v1" "hcloud_csi" {
 
 resource "helm_release" "hcloud_csi" {
   depends_on = [
-    null_resource.wait_for_cluster_ready,
+    terraform_data.wait_for_infrastructure,
     kubernetes_secret_v1.hcloud_ccm, # wait for the shared secret if HCCM creates it
     kubernetes_secret_v1.hcloud_csi, # or the one we create ourselves
   ]

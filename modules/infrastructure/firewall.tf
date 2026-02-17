@@ -107,4 +107,3 @@ resource "hcloud_firewall" "cluster" {
     ]
   }
 }
-
