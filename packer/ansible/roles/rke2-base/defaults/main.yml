@@ -1,0 +1,32 @@
+---
+# Default variables for rke2-base role
+# These can be overridden in the playbook or via --extra-vars
+
+# RKE2 version to pre-install. Must match var.rke2_version in the Terraform module.
+# DECISION: Version is pinned at image build time.
+# Why: Unpinned images (rke2_version: "") use latest-stable at build time, which drifts
+#      between builds and makes the "skip if installed" check in the bootstrap script
+#      unable to verify a version match. Pin explicitly for reproducibility.
+rke2_version: "v1.34.4+rke2r1"
+
+# Packages to pre-install (reduces cloud-init time by ~2-3 minutes)
+rke2_base_packages:
+  - open-iscsi          # Longhorn prerequisite
+  - nfs-common          # Longhorn NFS backup support
+  - curl                # RKE2 installer
+  - jq                  # JSON processing for health checks
+  - unattended-upgrades # Automatic security updates
+
+# Kernel modules to load at boot
+rke2_base_kernel_modules:
+  - iscsi_tcp           # iSCSI for Longhorn
+  - br_netfilter        # Required for Kubernetes networking
+  - overlay             # Required for container runtime
+
+# sysctl settings for Kubernetes
+rke2_base_sysctl:
+  net.bridge.bridge-nf-call-iptables: 1
+  net.bridge.bridge-nf-call-ip6tables: 1
+  net.ipv4.ip_forward: 1
+  fs.inotify.max_user_instances: 8192
+  fs.inotify.max_user_watches: 524288

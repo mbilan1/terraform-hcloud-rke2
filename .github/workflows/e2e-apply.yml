@@ -1,0 +1,103 @@
+# Badge: E2E: apply
+#
+# DECISION: Manual trigger only + explicit confirmation input.
+# Why: Creates real Hetzner resources and costs money.
+#      Prevents accidental apply from PRs/pushes.
+#
+# NOTE: Runs apply → smoke → destroy in examples/minimal.
+# Destroy runs unconditionally (if: always()) to avoid orphaned resources.
+#
+# SECURITY: State file contains sensitive data (SSH keys, kubeconfig, certs).
+# Mitigations:
+# 1. GitHub-hosted runner is ephemeral (destroyed after job)
+# 2. Explicit state shredding in always() cleanup step
+# 3. GitHub Environment 'e2e' can enforce required reviewers
+# 4. TF_LOG forced empty to prevent debug-level secret leaks
+# 5. No artifact upload — state never leaves the runner
+
+name: "E2E: apply"
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_cost:
+        description: "I understand this will provision real cloud resources and incur cost"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-apply
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: tofu apply + smoke + destroy (examples/minimal)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    # DECISION: GitHub Environment 'e2e' enables required reviewers and
+    # deployment protection rules. Create it in Settings → Environments.
+    environment: e2e
+
+    if: ${{ inputs.confirm_cost == 'true' }}
+
+    defaults:
+      run:
+        working-directory: examples/minimal
+
+    env:
+      TF_IN_AUTOMATION: "1"
+      TF_VAR_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
+      TF_VAR_domain: ${{ vars.E2E_DOMAIN || 'e2e.example.com' }}
+      # SECURITY: Force TF_LOG empty to prevent debug-level output from
+      # leaking sensitive resource attributes into workflow logs.
+      TF_LOG: ""
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: opentofu/setup-opentofu@9d84900f3238fab8cd84ce47d658d25dd008be2f # v1.0.8
+        with:
+          # SECURITY: Disable wrapper to prevent tofu stdout/stderr from being
+          # written to GITHUB_OUTPUT file on disk (could persist sensitive data).
+          tofu_wrapper: false
+
+      - name: Init
+        run: tofu init -backend=false -input=false
+
+      - name: Apply
+        run: tofu apply -auto-approve -input=false -no-color
+
+      - name: Smoke (kubectl get nodes)
+        # DECISION: Use kubectl against the real cluster to validate that:
+        # - cloud-init finished
+        # - RKE2 API is reachable
+        # - at least the control-plane node joined successfully
+        # Why: Output-only smoke can pass even when the cluster is not functional.
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y kubernetes-client
+
+          # SECURITY: Do not print kubeconfig to logs.
+          tofu output -raw kube_config > kubeconfig.yaml
+          kubectl --kubeconfig kubeconfig.yaml get nodes -o wide
+
+      - name: Destroy (always)
+        if: always()
+        run: tofu destroy -auto-approve -input=false -no-color
+
+      - name: Shred state files (always)
+        if: always()
+        # SECURITY: State file contains SSH private keys, kubeconfig, certs.
+        # Shred ensures data is overwritten before runner cleanup.
+        # Belt-and-suspenders: runner is ephemeral, but defense in depth.
+        run: |
+          find . -name 'terraform.tfstate*' -exec shred -vfzu {} + 2>/dev/null || true
+          find . -name '*.tfplan' -exec shred -vfzu {} + 2>/dev/null || true
+          find . -name 'kubeconfig.yaml' -exec shred -vfzu {} + 2>/dev/null || true
+          rm -rf .terraform/ 2>/dev/null || true

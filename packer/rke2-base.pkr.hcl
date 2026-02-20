@@ -1,0 +1,107 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Packer template for RKE2 base image (L1/L2)
+#
+# DECISION: Packer builds a golden image with pre-installed packages.
+# Why: Reproducibility — every node starts from the same image regardless of
+#      when it's provisioned. Also reduces cloud-init time by ~2-3 minutes
+#      (no apt-get during bootstrap).
+#
+# NOTE: This is a scaffold. Actual Packer builds are out of scope for
+#       Terraform module CI — they run separately (manually or via GitHub Actions).
+# See: docs/ARCHITECTURE.md — L1/L2 Layers
+# ──────────────────────────────────────────────────────────────────────────────
+
+packer {
+  required_plugins {
+    hcloud = {
+      version = ">= 1.6.0"
+      source  = "github.com/hetznercloud/hcloud"
+    }
+    ansible = {
+      version = ">= 1.1.0"
+      source  = "github.com/hashicorp/ansible"
+    }
+  }
+}
+
+variable "hcloud_token" {
+  type      = string
+  sensitive = true
+}
+
+variable "base_image" {
+  type    = string
+  default = "ubuntu-24.04"
+}
+
+variable "server_type" {
+  type    = string
+  default = "cx22"
+}
+
+variable "location" {
+  type    = string
+  default = "hel1"
+}
+
+variable "image_name" {
+  type    = string
+  default = "rke2-base"
+}
+
+variable "rke2_version" {
+  type    = string
+  default = "v1.34.4+rke2r1"
+  # NOTE: Match this to var.rke2_version in the Terraform module.
+  # Empty string installs the latest stable release (same as INSTALL_RKE2_VERSION= unset).
+}
+
+source "hcloud" "rke2_base" {
+  token       = var.hcloud_token
+  image       = var.base_image
+  location    = var.location
+  server_type = var.server_type
+  server_name = "packer-rke2-base"
+
+  snapshot_name   = "${var.image_name}-{{timestamp}}"
+  snapshot_labels = {
+    "managed-by"   = "packer"
+    "role"         = "rke2-base"
+    "base-image"   = var.base_image
+    # NOTE: rke2-version label allows Terraform data source lookups like:
+    # data "hcloud_image" "rke2" { with_selector = "rke2-version=v1.34.4+rke2r1" }
+    "rke2-version" = var.rke2_version
+  }
+
+  ssh_username = "root"
+}
+
+build {
+  sources = ["source.hcloud.rke2_base"]
+
+  # Install Ansible on the build instance
+  provisioner "shell" {
+    script = "scripts/install-ansible.sh"
+  }
+
+  # Run Ansible playbook for system hardening, package pre-installation, and RKE2 binary pre-install.
+  # DECISION: Pass rke2_version as extra-var so the image version matches the Terraform module variable.
+  # Why: Both must agree — if the image has v1.34 pre-installed but Terraform tries to install v1.35,
+  #      the bootstrap script's idempotency check will skip the re-install, locking the version to
+  #      what Packer baked in. Build a new image when upgrading.
+  provisioner "ansible-local" {
+    playbook_file = "ansible/playbook.yml"
+    role_paths    = ["ansible/roles/rke2-base"]
+    extra_vars    = "rke2_version=${var.rke2_version}"
+  }
+
+  # Clean up for snapshot
+  provisioner "shell" {
+    inline = [
+      "apt-get clean",
+      "rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*",
+      "cloud-init clean --logs --seed",
+      "sync",
+    ]
+  }
+}
