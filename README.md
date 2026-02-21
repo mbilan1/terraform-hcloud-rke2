@@ -29,6 +29,14 @@
 
 RKE2 Kubernetes cluster on Hetzner Cloud with Open edX (Harmony) integration.
 
+## Acknowledgements / Upstream
+
+This project started as an experimental fork of https://github.com/wenzel-felix/terraform-hcloud-rke2.
+Credit for the original baseline work goes to the upstream author and contributors.
+
+For clarity and license compliance, the upstream MIT license text is preserved in:
+- `LICENSES/MIT-upstream-wenzel-felix.txt`
+
 > [!WARNING]
 > **Experimental module.** APIs, variable names, and default values may change without notice between releases. Not production-ready. Use at your own risk.
 
