@@ -100,6 +100,11 @@ run "harmony_disabled_no_ingress_lb" {
     condition     = module.addons._test_counts.harmony_release == 0
     error_message = "Harmony helm release should not be created when harmony is disabled."
   }
+
+  assert {
+    condition     = module.addons._test_counts.harmony_default_tls_cert == 0
+    error_message = "Harmony default TLS Certificate must not be created when harmony is disabled."
+  }
 }
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -130,6 +135,11 @@ run "harmony_enabled_creates_ingress_lb" {
   assert {
     condition     = module.addons._test_counts.harmony_release == 1
     error_message = "Harmony helm release must be created when harmony is enabled."
+  }
+
+  assert {
+    condition     = module.addons._test_counts.harmony_default_tls_cert == 1
+    error_message = "Harmony default TLS Certificate must be created when harmony is enabled (TLS bootstrap)."
   }
 }
 
@@ -640,6 +650,11 @@ run "longhorn_disabled_by_default" {
   }
 
   assert {
+    condition     = module.addons._test_counts.longhorn_worker_disks == 0
+    error_message = "Longhorn worker disks should not be created when Longhorn is disabled (default)."
+  }
+
+  assert {
     condition     = module.addons._test_counts.longhorn_health_check == 0
     error_message = "Longhorn health check should not be created when Longhorn is disabled (default)."
   }
@@ -691,6 +706,11 @@ run "longhorn_enabled_creates_resources" {
   assert {
     condition     = module.addons._test_counts.longhorn_worker_labels == 3
     error_message = "Longhorn worker labels must match worker_node_count (default 3)."
+  }
+
+  assert {
+    condition     = module.addons._test_counts.longhorn_worker_disks == 3
+    error_message = "Longhorn worker disks must match worker_node_count (default 3)."
   }
 
   assert {

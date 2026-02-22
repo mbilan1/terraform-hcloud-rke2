@@ -94,3 +94,43 @@ spec:
 %{endif}
 YAML
 }
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Harmony: default TLS bootstrap certificate
+#
+# WORKAROUND: Harmony's built-in echo Ingress is HTTP-only (no spec.tls).
+# Why: ingress-nginx will otherwise serve its self-signed "Fake Certificate" for
+#      the HTTPS catch-all vhost, which looks like a broken platform.
+#      Issuing a real cert for var.domain and configuring ingress-nginx with
+#      --default-ssl-certificate fixes the UX without requiring Tutor/Open edX.
+# See: https://kubernetes.github.io/ingress-nginx/user-guide/tls/#default-ssl-certificate
+# See: https://cert-manager.io/docs/usage/certificate/
+resource "kubectl_manifest" "harmony_default_tls_certificate" {
+  depends_on = [
+    kubernetes_namespace_v1.harmony,
+    helm_release.harmony,
+    kubectl_manifest.cert_manager_issuer,
+  ]
+
+  count = (
+    var.harmony.enabled
+    && var.cluster_configuration.cert_manager.preinstall
+    && var.cluster_configuration.cert_manager.use_for_preinstalled_components
+    && local.harmony_enable_default_tls_certificate
+  ) ? 1 : 0
+
+  yaml_body = <<YAML
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: harmony-default-tls
+  namespace: harmony
+spec:
+  secretName: ${local.harmony_default_tls_secret_name}
+  dnsNames:
+    - ${var.domain}
+  issuerRef:
+    name: ${var.cluster_issuer_name}
+    kind: ClusterIssuer
+YAML
+}

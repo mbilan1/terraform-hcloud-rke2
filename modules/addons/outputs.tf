@@ -23,6 +23,7 @@ output "_test_counts" {
   value = {
     harmony_namespace             = length(kubernetes_namespace_v1.harmony)
     harmony_release               = length(helm_release.harmony)
+    harmony_default_tls_cert      = length(kubectl_manifest.harmony_default_tls_certificate)
     ingress_config                = length(kubectl_manifest.ingress_configuration)
     cert_manager_namespace        = length(kubernetes_namespace_v1.cert_manager)
     cert_manager_release          = length(helm_release.cert_manager)
@@ -36,6 +37,7 @@ output "_test_counts" {
     longhorn_s3_secret            = length(kubernetes_secret_v1.longhorn_s3)
     longhorn_iscsi_installer      = length(kubectl_manifest.longhorn_iscsi_installer)
     longhorn_worker_labels        = length(kubernetes_labels.longhorn_worker)
+    longhorn_worker_disks         = length(kubectl_manifest.longhorn_worker_disks)
     longhorn_health_check         = length(terraform_data.longhorn_health_check)
     longhorn_pre_upgrade_snapshot = length(terraform_data.longhorn_pre_upgrade_snapshot)
   }

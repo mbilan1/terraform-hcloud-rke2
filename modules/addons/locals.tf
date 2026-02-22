@@ -5,6 +5,24 @@
 locals {
   is_ha_cluster = var.master_node_count >= 3
 
+  # --- Harmony TLS bootstrap ---
+  # DECISION: Configure a default TLS certificate for Harmony's ingress-nginx.
+  # Why: ingress-nginx uses a self-signed "Fake Certificate" for the HTTPS catch-all
+  #      server unless --default-ssl-certificate is set. This causes an immediate
+  #      "TLS error" impression on https://<domain>/ even when the cluster is healthy.
+  #      We keep this opt-out (enabled by default) so the module feels "working" out
+  #      of the box, while still allowing advanced operators to manage TLS differently.
+  # See: https://kubernetes.github.io/ingress-nginx/user-guide/tls/#default-ssl-certificate
+  harmony_enable_default_tls_certificate = (
+    var.harmony.enabled && try(var.harmony.enable_default_tls_certificate, true)
+  )
+
+  harmony_default_tls_secret_name = (
+    trimspace(try(var.harmony.default_tls_secret_name, "")) != ""
+    ? trimspace(var.harmony.default_tls_secret_name)
+    : "harmony-default-tls"
+  )
+
   # --- System Upgrade Controller manifests ---
   system_upgrade_controller_crds       = try(split("---", data.http.system_upgrade_controller_crds[0].response_body), null)
   system_upgrade_controller_components = try(split("---", data.http.system_upgrade_controller[0].response_body), null)
@@ -38,6 +56,16 @@ locals {
         hostPort = {
           enabled = true
         }
+
+        # WORKAROUND: Provide a valid default HTTPS certificate even when an Ingress
+        # resource does not define spec.tls (e.g. Harmony's echo Ingress).
+        # Why: Without this, ingress-nginx serves the self-signed "Fake Certificate"
+        #      on the catch-all server and browsers show a scary TLS error.
+        # See: https://kubernetes.github.io/ingress-nginx/user-guide/tls/#default-ssl-certificate
+        extraArgs = local.harmony_enable_default_tls_certificate ? {
+          "default-ssl-certificate" = "harmony/${local.harmony_default_tls_secret_name}"
+        } : {}
+
         service = {
           type = "ClusterIP"
         }

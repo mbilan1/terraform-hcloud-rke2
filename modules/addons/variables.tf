@@ -94,6 +94,10 @@ variable "harmony" {
     enabled      = bool
     version      = string
     extra_values = list(string)
+
+    # NOTE: Optional knobs for TLS bootstrap (see root variables.tf).
+    enable_default_tls_certificate = optional(bool, true)
+    default_tls_secret_name        = optional(string, "harmony-default-tls")
   })
 }
 

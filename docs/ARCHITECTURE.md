@@ -3,7 +3,7 @@
 > **Module**: `terraform-hcloud-rke2`
 > **Status**: **Experimental** — under active development, not production-ready
 > **Target**: Enterprise-grade, best-practice aligned (aspirational)
-> **Last updated**: 2025-06-13
+> **Last updated**: 2026-02-19
 
 ---
 
@@ -329,12 +329,35 @@ flowchart TB
 | Component | Role | Always Installed | Notes |
 |-----------|------|:---:|-------|
 | **Hetzner CCM** | Cloud controller (node lifecycle, LB integration) | Yes | Shared `hcloud` secret with CSI |
-| **Hetzner CSI** | Persistent volumes (`hcloud-volumes` StorageClass) | Yes | Required for Open edX PVCs (MySQL, Mongo, etc.) |
+| **Hetzner CSI** | Persistent volumes (`hcloud-volumes` StorageClass) | Yes (default) | Can be disabled via `cluster_configuration.hcloud_csi.preinstall = false` when using Longhorn as primary storage. |
 | **cert-manager** | TLS certificate automation | Yes | ClusterIssuer name matches Harmony convention |
 | **Longhorn** | Distributed block storage + native S3 backup | Opt-in | `longhorn.preinstall` defaults to `false`. Experimental. Provides VolumeSnapshot + recurring backup jobs. |
 | **Harmony** | Open edX Kubernetes orchestration | Opt-in | `harmony.enabled` defaults to `false`. When enabled, it disables RKE2 built-in ingress and deploys Harmony ingress-nginx. |
 | **Kured** | Automatic node reboot after OS updates | HA only | Skipped on single-master clusters |
 | **System Upgrade Controller** | Automated K8s version upgrades | HA only | Follows `stable` channel |
+
+### Harmony: default TLS certificate bootstrap
+
+**DECISION: Provide a default HTTPS certificate when Harmony is enabled**
+
+**Why:** openedx-k8s-harmony ships an HTTP-only "echo" Ingress by default (no `tls:` block). Until
+Tutor creates per-host Ingress objects with cert-manager annotations, ingress-nginx falls back to
+its self-signed "Fake Certificate" for catch-all HTTPS — which is a poor out-of-the-box operator
+experience and often misdiagnosed as "cert-manager is broken".
+
+This module optionally:
+
+- creates a cert-manager `Certificate` for `var.domain` in the `harmony` namespace
+- configures Harmony's ingress-nginx controller with `--default-ssl-certificate=harmony/<secret>`
+
+This makes `https://<domain>/` present a valid certificate even before Open edX is deployed.
+
+**See:** https://kubernetes.github.io/ingress-nginx/user-guide/tls/#default-ssl-certificate
+
+This behavior is controlled by the `harmony` object:
+
+- `harmony.enable_default_tls_certificate` (default: `true`)
+- `harmony.default_tls_secret_name` (default: `harmony-default-tls`)
 
 ---
 
