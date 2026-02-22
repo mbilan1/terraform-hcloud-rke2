@@ -236,9 +236,13 @@ resource "terraform_data" "cluster_health_check" {
   provisioner "remote-exec" {
     inline = [
       "export KUBECONFIG=/etc/rancher/rke2/rke2.yaml",
-      "export PATH=\"$PATH:/var/lib/rancher/rke2/bin\"",
+      # WORKAROUND: Set an explicit PATH for remote-exec scripts.
+      # Why: In some environments the non-interactive SSH session can have an
+      #      unexpectedly minimal PATH, causing basic utilities (grep/date/wc)
+      #      to be "not found" and failing health checks spuriously.
+      "export PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/var/lib/rancher/rke2/bin\"",
       "EXPECTED=${var.master_node_count + var.worker_node_count}",
-      "TIMEOUT=600",
+      "TIMEOUT=900",
       "ELAPSED=0",
       "echo '=== Cluster Health Check ==='",
       # Check 1: API server /readyz
@@ -247,8 +251,12 @@ resource "terraform_data" "cluster_health_check" {
       # Check 2: All nodes Ready
       "while true; do READY=$(kubectl get nodes --no-headers 2>/dev/null | awk '$2 == \"Ready\" {c++} END {print c+0}'); [ \"$READY\" -ge \"$EXPECTED\" ] && break; [ $ELAPSED -ge $TIMEOUT ] && echo \"FAIL: Nodes $READY/$EXPECTED\" && exit 1; sleep 10; ELAPSED=$((ELAPSED + 10)); done",
       "echo \"PASS: Nodes Ready ($EXPECTED/$EXPECTED)\"",
-      # Check 3: System pods Running
-      "for P in coredns kube-proxy cloud-controller-manager; do C=$(kubectl get pods -A --no-headers 2>/dev/null | grep \"$P\" | grep -c Running || true); [ \"$C\" -eq 0 ] && echo \"FAIL: No running $P pods\" && exit 1; echo \"PASS: $P ($C running)\"; done",
+      # Check 3: System pods Running (tolerant wait)
+      # WORKAROUND: CoreDNS is sometimes not Running immediately after all nodes
+      # report Ready on fresh clusters (transient scheduling / image pull).
+      # Why: Failing the whole apply on that transient makes first-time UX brittle.
+      "ELAPSED=0",
+      "for P in coredns kube-proxy cloud-controller-manager; do while true; do C=$(kubectl get pods -A --no-headers 2>/dev/null | grep \"$P\" | grep -c Running || true); [ \"$C\" -gt 0 ] && echo \"PASS: $P ($C running)\" && break; [ $ELAPSED -ge $TIMEOUT ] && echo \"FAIL: No running $P pods\" && exit 1; echo \"Waiting for $P pods to become Running... $ELAPSED/$TIMEOUT\"; sleep 10; ELAPSED=$((ELAPSED + 10)); done; done",
       # Check 4: HTTP endpoints (optional, Terraform-injected)
       "URLS='${join(" ", var.health_check_urls)}'",
       "for URL in $URLS; do CODE=$(curl -sk -o /dev/null -w '%%{http_code}' \"$URL\" 2>/dev/null || echo '000'); if [ \"$CODE\" -ge 200 ] && [ \"$CODE\" -lt 400 ]; then echo \"PASS: HTTP $URL ($CODE)\"; else echo \"FAIL: HTTP $URL ($CODE)\" && exit 1; fi; done",
