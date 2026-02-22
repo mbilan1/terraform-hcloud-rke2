@@ -18,7 +18,7 @@ locals {
   cluster_host = "https://${hcloud_load_balancer.control_plane.ipv4}:6443"
   kube_config  = replace(data.remote_file.kubeconfig.content, "https://127.0.0.1:6443", local.cluster_host)
 
-  is_highly_available = var.master_node_count >= 3
+  is_ha_cluster = var.master_node_count >= 3
 
   # DECISION: Auto-detect Hetzner Object Storage endpoint from lb_location.
   # Why: Reduces configuration burden — operator only needs bucket + credentials.

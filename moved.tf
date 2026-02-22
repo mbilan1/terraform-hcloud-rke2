@@ -37,24 +37,11 @@ moved {
   to   = module.infrastructure.random_string.worker_node_suffix
 }
 
-# Hop 2: rename within module
-moved {
-  from = module.infrastructure.random_string.worker_node_suffix
-  to   = module.infrastructure.random_string.worker_pool_suffix
-}
-
 # --- SSH ---
 
-# Hop 1: root → module (original refactoring)
 moved {
   from = tls_private_key.machines
   to   = module.infrastructure.tls_private_key.machines
-}
-
-# Hop 2: rename within module
-moved {
-  from = module.infrastructure.tls_private_key.machines
-  to   = module.infrastructure.tls_private_key.cluster_nodes
 }
 
 moved {
@@ -69,16 +56,9 @@ moved {
 
 # --- Network ---
 
-# Hop 1: root → module (original refactoring)
 moved {
   from = hcloud_network.main
   to   = module.infrastructure.hcloud_network.main
-}
-
-# Hop 2: rename within module
-moved {
-  from = module.infrastructure.hcloud_network.main
-  to   = module.infrastructure.hcloud_network.cluster
 }
 
 moved {
@@ -215,24 +195,13 @@ moved {
 # --- HCCM ---
 
 moved {
-  from = kubernetes_secret_v1.hcloud_ccm[0]
-  to   = module.addons.kubernetes_secret_v1.hcloud_ccm[0]
+  from = kubernetes_secret_v1.hcloud_ccm
+  to   = module.addons.kubernetes_secret_v1.hcloud_ccm
 }
 
 moved {
-  from = helm_release.hccm[0]
-  to   = module.addons.helm_release.hccm[0]
-}
-
-# Hop 2: rename + count → for_each within module
-moved {
-  from = module.addons.kubernetes_secret_v1.hcloud_ccm[0]
-  to   = module.addons.kubernetes_secret_v1.hccm_credentials["enabled"]
-}
-
-moved {
-  from = module.addons.helm_release.hccm[0]
-  to   = module.addons.helm_release.hcloud_ccm["enabled"]
+  from = helm_release.hccm
+  to   = module.addons.helm_release.hccm
 }
 
 # --- CSI ---
@@ -250,8 +219,8 @@ moved {
 # --- cert-manager ---
 
 moved {
-  from = kubernetes_namespace_v1.cert_manager[0]
-  to   = module.addons.kubernetes_namespace_v1.cert_manager[0]
+  from = kubernetes_namespace_v1.cert_manager
+  to   = module.addons.kubernetes_namespace_v1.cert_manager
 }
 
 moved {
@@ -260,24 +229,13 @@ moved {
 }
 
 moved {
-  from = helm_release.cert_manager[0]
-  to   = module.addons.helm_release.cert_manager[0]
+  from = helm_release.cert_manager
+  to   = module.addons.helm_release.cert_manager
 }
 
 moved {
   from = kubectl_manifest.cert_manager_issuer
   to   = module.addons.kubectl_manifest.cert_manager_issuer
-}
-
-# Hop 2: count → for_each within module
-moved {
-  from = module.addons.kubernetes_namespace_v1.cert_manager[0]
-  to   = module.addons.kubernetes_namespace_v1.cert_manager["ns"]
-}
-
-moved {
-  from = module.addons.helm_release.cert_manager[0]
-  to   = module.addons.helm_release.cert_manager["release"]
 }
 
 # --- Longhorn ---
@@ -339,13 +297,13 @@ moved {
 # --- Self-maintenance ---
 
 moved {
-  from = kubernetes_namespace_v1.kured[0]
-  to   = module.addons.kubernetes_namespace_v1.kured[0]
+  from = kubernetes_namespace_v1.kured
+  to   = module.addons.kubernetes_namespace_v1.kured
 }
 
 moved {
-  from = helm_release.kured[0]
-  to   = module.addons.helm_release.kured[0]
+  from = helm_release.kured
+  to   = module.addons.helm_release.kured
 }
 
 moved {
@@ -371,15 +329,4 @@ moved {
 moved {
   from = kubectl_manifest.system_upgrade_controller_agent_plan
   to   = module.addons.kubectl_manifest.system_upgrade_controller_agent_plan
-}
-
-# Hop 2: count → for_each within module
-moved {
-  from = module.addons.kubernetes_namespace_v1.kured[0]
-  to   = module.addons.kubernetes_namespace_v1.kured["kured"]
-}
-
-moved {
-  from = module.addons.helm_release.kured[0]
-  to   = module.addons.helm_release.kured["kured"]
 }

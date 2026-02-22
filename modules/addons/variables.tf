@@ -170,7 +170,7 @@ variable "worker_node_count" {
 }
 
 variable "master_node_count" {
-  description = "Number of master nodes (used for HA cluster detection)"
+  description = "Number of master nodes (for is_ha_cluster computation)"
   type        = number
 }
 

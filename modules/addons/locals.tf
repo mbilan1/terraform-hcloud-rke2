@@ -3,14 +3,11 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 locals {
-  is_highly_available = var.master_node_count >= 3
+  is_ha_cluster = var.master_node_count >= 3
 
   # --- System Upgrade Controller manifests ---
-  # WORKAROUND: Default to empty lists instead of null.
-  # Why: In `tofu test` with mock_provider, data.http responses may be unknown/null.
-  #      Using [] keeps downstream for_each expressions plan-time evaluable.
-  system_upgrade_controller_crds       = try(split("---", data.http.system_upgrade_controller_crds[0].response_body), [])
-  system_upgrade_controller_components = try(split("---", data.http.system_upgrade_controller[0].response_body), [])
+  system_upgrade_controller_crds       = try(split("---", data.http.system_upgrade_controller_crds[0].response_body), null)
+  system_upgrade_controller_components = try(split("---", data.http.system_upgrade_controller[0].response_body), null)
 
   # --- Longhorn S3 endpoint auto-detection ---
   # DECISION: Auto-detect Hetzner Object Storage endpoint from lb_location for Longhorn.

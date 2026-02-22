@@ -78,7 +78,7 @@ resource "terraform_data" "wait_for_api" {
       type        = "ssh"
       host        = hcloud_server.master[0].ipv4_address
       user        = "root"
-      private_key = tls_private_key.cluster_nodes.private_key_openssh
+      private_key = tls_private_key.machines.private_key_openssh
       timeout     = "15m"
     }
   }
@@ -139,7 +139,7 @@ resource "terraform_data" "wait_for_cluster_ready" {
       type        = "ssh"
       host        = hcloud_server.master[0].ipv4_address
       user        = "root"
-      private_key = tls_private_key.cluster_nodes.private_key_openssh
+      private_key = tls_private_key.machines.private_key_openssh
       timeout     = "15m"
     }
   }
@@ -161,7 +161,7 @@ data "remote_file" "kubeconfig" {
   conn {
     host        = hcloud_server.master[0].ipv4_address
     user        = "root"
-    private_key = tls_private_key.cluster_nodes.private_key_openssh
+    private_key = tls_private_key.machines.private_key_openssh
     sudo        = true
     timeout     = 500
   }
@@ -192,7 +192,7 @@ resource "terraform_data" "pre_upgrade_snapshot" {
     type        = "ssh"
     host        = hcloud_server.master[0].ipv4_address
     user        = "root"
-    private_key = tls_private_key.cluster_nodes.private_key_openssh
+    private_key = tls_private_key.machines.private_key_openssh
     timeout     = "5m"
   }
 
@@ -229,7 +229,7 @@ resource "terraform_data" "cluster_health_check" {
     type        = "ssh"
     host        = hcloud_server.master[0].ipv4_address
     user        = "root"
-    private_key = tls_private_key.cluster_nodes.private_key_openssh
+    private_key = tls_private_key.machines.private_key_openssh
     timeout     = "15m"
   }
 

@@ -41,12 +41,12 @@ output "kube_config" {
 
 output "network_id" {
   description = "The ID of the Hetzner Cloud private network"
-  value       = hcloud_network.cluster.id
+  value       = hcloud_network.main.id
 }
 
 output "network_name" {
   description = "The name of the Hetzner Cloud private network"
-  value       = hcloud_network.cluster.name
+  value       = hcloud_network.main.name
 }
 
 # --- Load Balancers ---
@@ -87,7 +87,7 @@ output "master_ipv4" {
 
 output "ssh_private_key" {
   description = "The SSH private key for remote-exec provisioners"
-  value       = tls_private_key.cluster_nodes.private_key_openssh
+  value       = tls_private_key.machines.private_key_openssh
   sensitive   = true
 }
 
