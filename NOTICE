@@ -2,8 +2,15 @@ This repository contains an independently maintained Terraform/OpenTofu module.
 
 Acknowledgements / Upstream
 
-- This project started as an experimental fork of:
+- This project originally started from the upstream module:
   https://github.com/wenzel-felix/terraform-hcloud-rke2
+- The divergence began from upstream release v0.6.1 (Jan 23, 2025).
+  Since then the codebase has been extensively rewritten and has diverged
+  architecturally from the upstream (see docs/ARCHITECTURE.md for details).
+- The Git history was reset to begin from the first independent release
+  (commit b5a31c6, "feat: initial release"). Upstream commit history is
+  not preserved in this repository; the upstream repository remains
+  available at its original URL.
 - Credit for the original baseline work belongs to the upstream author and
   contributors.
 
