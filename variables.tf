@@ -59,7 +59,7 @@ variable "cluster_configuration" {
     # Hetzner Cloud API. Should almost always stay enabled.
     hcloud_controller = optional(object({
       preinstall = optional(bool, true)
-      version    = optional(string, "1.19.0")
+      version    = optional(string, "1.30.1")
 
       # NOTE: Optional metadata for operators.
       # Why: These fields are intentionally *not* consumed by the module today.
@@ -74,7 +74,7 @@ variable "cluster_configuration" {
     # Can be demoted once Longhorn is battle-tested.
     hcloud_csi = optional(object({
       preinstall            = optional(bool, true)
-      version               = optional(string, "2.12.0")
+      version               = optional(string, "2.19.1")
       default_storage_class = optional(bool, true)
       reclaim_policy        = optional(string, "Delete")
 
@@ -103,8 +103,8 @@ variable "cluster_configuration" {
     # SUC: System Upgrade Controller for automated RKE2 patch upgrades.
     # Both require HA (≥3 masters) and are gated in selfmaintenance.tf.
     self_maintenance = optional(object({
-      kured_version                     = optional(string, "3.0.1")
-      system_upgrade_controller_version = optional(string, "0.13.4")
+      kured_version                     = optional(string, "5.11.0")
+      system_upgrade_controller_version = optional(string, "0.19.0")
 
       # NOTE: Optional metadata for operators.
       # Why: Makes it easier to keep internal naming conventions consistent
@@ -148,7 +148,7 @@ variable "cluster_configuration" {
     # See: docs/PLAN-operational-readiness.md — Step 2
     longhorn = optional(object({
       preinstall            = optional(bool, false)
-      version               = optional(string, "1.7.3")
+      version               = optional(string, "1.11.0")
       replica_count         = optional(number, 2)
       default_storage_class = optional(bool, true)
       backup_target         = optional(string, "")

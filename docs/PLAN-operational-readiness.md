@@ -316,7 +316,7 @@ Add `longhorn` to `cluster_configuration` in `variables.tf`:
 
 ```hcl
 longhorn = optional(object({
-  version               = optional(string, "1.7.3")
+  version               = optional(string, "1.11.0")
   preinstall            = optional(bool, false)            # Experimental, disabled by default
   replica_count         = optional(number, 2)              # 2 = balance between safety and disk usage
   default_storage_class = optional(bool, true)             # Make longhorn the default SC
