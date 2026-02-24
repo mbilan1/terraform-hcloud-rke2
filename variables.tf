@@ -40,13 +40,6 @@ variable "aws_secret_key" {
   default     = ""
 }
 
-# NOTE: The variable name "cluster_configuration" and several nested key names
-# (hcloud_controller.preinstall/.version, cert_manager.preinstall/.version/
-# .use_for_preinstalled_components, self_maintenance.system_upgrade_controller_version)
-# are derived from upstream wenzel-felix/terraform-hcloud-rke2 (MIT).
-# Extensively extended here: added hcloud_csi, etcd_backup, longhorn subsections,
-# release_name/namespace metadata, and 20 validation blocks.
-# See: NOTICE — Upstream-derived patterns, C5
 variable "cluster_configuration" {
   description = <<-EOT
     Addon stack configuration — controls which Kubernetes components are pre-installed
@@ -59,7 +52,7 @@ variable "cluster_configuration" {
     # Hetzner Cloud API. Should almost always stay enabled.
     hcloud_controller = optional(object({
       preinstall = optional(bool, true)
-      version    = optional(string, "1.30.1")
+      version    = optional(string, "1.19.0")
 
       # NOTE: Optional metadata for operators.
       # Why: These fields are intentionally *not* consumed by the module today.
@@ -74,7 +67,7 @@ variable "cluster_configuration" {
     # Can be demoted once Longhorn is battle-tested.
     hcloud_csi = optional(object({
       preinstall            = optional(bool, true)
-      version               = optional(string, "2.19.1")
+      version               = optional(string, "2.12.0")
       default_storage_class = optional(bool, true)
       reclaim_policy        = optional(string, "Delete")
 
@@ -103,8 +96,8 @@ variable "cluster_configuration" {
     # SUC: System Upgrade Controller for automated RKE2 patch upgrades.
     # Both require HA (≥3 masters) and are gated in selfmaintenance.tf.
     self_maintenance = optional(object({
-      kured_version                     = optional(string, "5.11.0")
-      system_upgrade_controller_version = optional(string, "0.19.0")
+      kured_version                     = optional(string, "3.0.1")
+      system_upgrade_controller_version = optional(string, "0.13.4")
 
       # NOTE: Optional metadata for operators.
       # Why: Makes it easier to keep internal naming conventions consistent
@@ -148,7 +141,7 @@ variable "cluster_configuration" {
     # See: docs/PLAN-operational-readiness.md — Step 2
     longhorn = optional(object({
       preinstall            = optional(bool, false)
-      version               = optional(string, "1.11.0")
+      version               = optional(string, "1.7.3")
       replica_count         = optional(number, 2)
       default_storage_class = optional(bool, true)
       backup_target         = optional(string, "")
@@ -460,7 +453,7 @@ variable "master_node_locations" {
 }
 
 variable "master_node_server_type" {
-  description = "Hetzner Cloud server type for control-plane nodes (e.g. 'cx23', 'cx33', 'cx43')."
+  description = "Hetzner Cloud server type for control-plane nodes (e.g. 'cx22', 'cx32', 'cx42')."
   type        = string
   nullable    = false
   default     = "cx23"
@@ -585,9 +578,8 @@ variable "worker_node_locations" {
 }
 
 variable "worker_node_server_type" {
-  description = "Hetzner Cloud server type for worker nodes (e.g. 'cx23', 'cx33', 'cx43')."
+  description = "Hetzner Cloud server type for worker nodes (e.g. 'cx22', 'cx32', 'cx42')."
   type        = string
   nullable    = false
   default     = "cx23"
 }
-

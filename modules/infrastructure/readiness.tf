@@ -145,35 +145,6 @@ resource "terraform_data" "wait_for_cluster_ready" {
   }
 }
 
-# --- Fetch kubeconfig from master[0] ---
-# NOTE: The remote_file approach (tenstad/remote provider, resource name
-# "kubeconfig", sudo = true, timeout = 500) is derived from upstream
-# wenzel-felix/terraform-hcloud-rke2 (MIT). Rewritten here with different
-# host source, dependency chain, and extensive depends_on rationale.
-# See: NOTICE — Upstream-derived patterns, C2
-
-data "remote_file" "kubeconfig" {
-  depends_on = [
-    # Reliability compromise (chosen): fetch kubeconfig only after full node readiness,
-    # not just API readiness, to reduce early Helm/Kubernetes provider race conditions
-    # on first apply.
-    #
-    # Alternative considered: keep depends_on = [terraform_data.wait_for_api] for faster
-    # addon start. Rejected because it can trigger transient failures while workers are
-    # still joining, which is noisier for operators and CI.
-    terraform_data.wait_for_cluster_ready
-  ]
-  conn {
-    host        = hcloud_server.initial_control_plane[0].ipv4_address
-    user        = "root"
-    private_key = tls_private_key.ssh_identity.private_key_openssh
-    sudo        = true
-    timeout     = 500
-  }
-
-  path = "/etc/rancher/rke2/rke2.yaml"
-}
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Pre-upgrade etcd snapshot
 #

@@ -20,11 +20,9 @@ terraform {
     }
 
     # ── AWS (Route53 DNS only) ──────────────────────────────────────────────
-    # NOTE: Upper bound widened from < 6.0.0 to < 7.0.0 to accommodate
-    # terraform-aws-modules/route53 which requires >= 6.3.0 in v5+.
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.0.0, < 7.0.0"
+      version = ">= 5.0.0, < 6.0.0"
     }
 
     # ── Kubernetes resource management ──────────────────────────────────────
@@ -88,6 +86,9 @@ locals {
   aws_access_key_effective = (!local.aws_dns_is_enabled && var.aws_access_key == "") ? "unused" : var.aws_access_key
   aws_secret_key_effective = (!local.aws_dns_is_enabled && var.aws_secret_key == "") ? "unused" : var.aws_secret_key
 
+  # DECISION: Keep provider locals strictly behavior-driving.
+  # Why: Removing unused metadata placeholders avoids dead config that can
+  #      confuse reviews and static analysis without adding runtime value.
   aws_skip_validation = !local.aws_dns_is_enabled
 }
 

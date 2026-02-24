@@ -689,6 +689,11 @@ run "longhorn_disabled_by_default" {
     condition     = module.addons._test_counts.longhorn_pre_upgrade_snapshot == 0
     error_message = "Longhorn pre-upgrade snapshot should not be created when Longhorn is disabled (default)."
   }
+
+  assert {
+    condition     = module.addons._test_counts.longhorn_destroy_prep == 0
+    error_message = "Longhorn destroy prep should not be created when Longhorn is disabled (default)."
+  }
 }
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -748,6 +753,11 @@ run "longhorn_enabled_creates_resources" {
   assert {
     condition     = module.addons._test_counts.longhorn_pre_upgrade_snapshot == 1
     error_message = "Longhorn pre-upgrade snapshot must be created when Longhorn is enabled."
+  }
+
+  assert {
+    condition     = module.addons._test_counts.longhorn_destroy_prep == 1
+    error_message = "Longhorn destroy prep must be created when Longhorn is enabled."
   }
 }
 

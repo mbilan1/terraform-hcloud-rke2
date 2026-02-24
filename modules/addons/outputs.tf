@@ -40,5 +40,6 @@ output "_test_counts" {
     longhorn_worker_disks         = length(kubectl_manifest.longhorn_worker_disks)
     longhorn_health_check         = length(terraform_data.longhorn_health_check)
     longhorn_pre_upgrade_snapshot = length(terraform_data.longhorn_pre_upgrade_snapshot)
+    longhorn_destroy_prep         = length(terraform_data.longhorn_destroy_prep)
   }
 }

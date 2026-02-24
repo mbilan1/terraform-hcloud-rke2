@@ -255,6 +255,71 @@ resource "helm_release" "longhorn" {
   })]
 }
 
+# --- Destroy-time Preparation ---
+
+# WORKAROUND: Pre-destroy cleanup for Longhorn admission webhooks and settings.
+# Why: Longhorn's ValidatingWebhookConfiguration blocks deletion of Node resources
+#      (longhorn_worker_disks) when replicas/engines are running on the node. During
+#      `tofu destroy`, the entire cluster is being torn down, so the webhook safety
+#      check is unnecessary and blocks infrastructure destruction.
+#      Additionally, Longhorn's Helm pre-delete Job requires the setting
+#      `deleting-confirmation-flag` to be "true" before it can proceed. Without it,
+#      the Job retries until BackoffLimitExceeded, causing `helm_release` uninstall
+#      to fail with "job longhorn-uninstall failed: BackoffLimitExceeded".
+# See: https://longhorn.io/docs/latest/deploy/uninstall/
+# See: docs/ARCHITECTURE.md — Addon Dependency Chain
+resource "terraform_data" "longhorn_destroy_prep" {
+  count = var.cluster_configuration.longhorn.preinstall ? 1 : 0
+
+  # DECISION: Depend on all Longhorn leaf resources.
+  # Why: Terraform destroys dependents before their dependencies.
+  #      By depending on the leaf resources, this resource is destroyed FIRST,
+  #      running the cleanup provisioner before Tofu attempts to delete
+  #      longhorn_worker_disks (blocked by webhook) or helm_release (blocked
+  #      by missing confirmation flag).
+  depends_on = [
+    kubectl_manifest.longhorn_worker_disks,
+    terraform_data.longhorn_health_check,
+    terraform_data.longhorn_pre_upgrade_snapshot,
+  ]
+
+  # NOTE: Destroy-time provisioners can only reference self.*, count.index, each.key.
+  # Store connection details in input so they're available via self.output at destroy time.
+  input = {
+    master_ip = var.master_ipv4
+    ssh_key   = var.ssh_private_key
+  }
+
+  connection {
+    type        = "ssh"
+    host        = self.output.master_ip
+    user        = "root"
+    private_key = self.output.ssh_key
+    timeout     = "2m"
+  }
+
+  # WORKAROUND: on_failure = continue to prevent blocking destroy if SSH is unavailable.
+  # Why: During destroy, the master node may already be partially torn down or
+  #      unreachable. If the cleanup fails, we still want destroy to proceed —
+  #      the worst case is the same errors the user saw before this fix, requiring
+  #      manual `tofu state rm` of the stuck resources.
+  provisioner "remote-exec" {
+    when       = destroy
+    on_failure = continue
+    inline = [
+      "export KUBECONFIG=/etc/rancher/rke2/rke2.yaml",
+      "export PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/var/lib/rancher/rke2/bin\"",
+      "echo '=== Longhorn Destroy Preparation ==='",
+      # Step 1: Delete admission webhooks to unblock kubectl_manifest.longhorn_worker_disks deletion
+      "kubectl delete validatingwebhookconfiguration longhorn-webhook-validator --ignore-not-found=true 2>/dev/null || true",
+      "kubectl delete mutatingwebhookconfiguration longhorn-webhook-mutator --ignore-not-found=true 2>/dev/null || true",
+      # Step 2: Set deleting-confirmation-flag so Longhorn's Helm pre-delete Job can proceed
+      "kubectl -n longhorn-system patch settings.longhorn.io deleting-confirmation-flag --type=merge -p '{\"value\":\"true\"}' 2>/dev/null || true",
+      "echo 'Longhorn destroy preparation complete'",
+    ]
+  }
+}
+
 # --- Longhorn Health Check ---
 
 # DECISION: Separate health check for Longhorn, independent of the main cluster health check.

@@ -24,8 +24,19 @@ locals {
   )
 
   # --- System Upgrade Controller manifests ---
-  suc_crd_documents        = try(split("---", data.http.suc_crd_manifest[0].response_body), null)
-  suc_controller_documents = try(split("---", data.http.suc_controller_manifest[0].response_body), null)
+  # DECISION: Normalize downloaded YAML into trimmed non-empty document list.
+  # Why: split("---") can produce empty chunks from leading/trailing separators.
+  #      Filtering empties keeps for_each keys stable and avoids applying blank
+  #      manifests that later fail with opaque provider errors.
+  suc_crd_documents = try([
+    for doc in split("---", data.http.suc_crd_manifest[0].response_body) : trimspace(doc)
+    if trimspace(doc) != ""
+  ], [])
+
+  suc_controller_documents = try([
+    for doc in split("---", data.http.suc_controller_manifest[0].response_body) : trimspace(doc)
+    if trimspace(doc) != ""
+  ], [])
 
   # --- Longhorn S3 endpoint auto-detection ---
   # DECISION: Auto-detect Hetzner Object Storage endpoint from load_balancer_location for Longhorn.

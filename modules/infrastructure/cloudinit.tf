@@ -68,7 +68,8 @@ data "cloudinit_config" "initial_control_plane" {
 
   # Part 2: Bootstrap shell script — minimal runtime logic only.
   # DECISION: Shell script only handles what requires runtime data.
-  # Why: IP detection uses Hetzner metadata API (available only at boot time).
+  # Why: IP detection prefers Hetzner metadata and falls back to kernel state
+  #      during early-boot metadata/network races.
   #      Everything else (config content, install version) is already resolved.
   part {
     content_type = "text/x-shellscript"

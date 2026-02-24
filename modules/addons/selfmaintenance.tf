@@ -18,6 +18,39 @@ locals {
   # SUC version shorthand — used in download URLs below
   suc_version  = var.cluster_configuration.self_maintenance.system_upgrade_controller_version
   suc_base_url = "https://github.com/rancher/system-upgrade-controller/releases/download/v${local.suc_version}"
+
+  # DECISION: Keep deterministic for_each maps with explicit keys.
+  # Why: Existing moved blocks and historical state transitions already target
+  #      these keys ("kured", "server-plan", "agent-plan"). Preserving keys
+  #      avoids unnecessary state churn while still allowing internal refactors.
+  kured_instances = local.enable_os_patching ? {
+    kured = {
+      release_name = "kured"
+      namespace    = "kured"
+    }
+  } : {}
+
+  suc_server_plan_instances = local.enable_k8s_upgrades ? {
+    "server-plan" = {
+      concurrency = 1
+      role_key    = "node-role.kubernetes.io/control-plane"
+      role_op     = "In"
+      role_values = ["true"]
+    }
+  } : {}
+
+  suc_agent_plan_instances = local.enable_k8s_upgrades ? {
+    "agent-plan" = {
+      concurrency = 2
+      role_key    = "node-role.kubernetes.io/control-plane"
+      role_op     = "NotIn"
+      role_values = ["true"]
+    }
+  } : {}
+
+  # NOTE: Shared SUC image/channel constants kept in locals for consistency.
+  suc_upgrade_image   = "rancher/rke2-upgrade"
+  suc_upgrade_channel = "https://update.rke2.io/v1-release/channels/stable"
 }
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -28,12 +61,13 @@ locals {
 resource "kubernetes_namespace_v1" "reboot_daemon" {
   depends_on = [terraform_data.wait_for_infrastructure]
 
-  for_each = local.enable_os_patching ? toset(["kured"]) : toset([])
+  for_each = local.kured_instances
 
   metadata {
-    name = "kured"
+    name = each.value.namespace
     labels = {
       "app.kubernetes.io/component" = "reboot-daemon"
+      "app.kubernetes.io/name"      = "kured"
       "managed-by"                  = "opentofu"
     }
   }
@@ -46,12 +80,12 @@ resource "kubernetes_namespace_v1" "reboot_daemon" {
 resource "helm_release" "reboot_daemon" {
   depends_on = [kubernetes_namespace_v1.reboot_daemon]
 
-  for_each = local.enable_os_patching ? toset(["kured"]) : toset([])
+  for_each = local.kured_instances
 
-  name       = "kured"
+  name       = each.value.release_name
   repository = "https://kubereboot.github.io/charts"
   chart      = "kured"
-  namespace  = "kured"
+  namespace  = each.value.namespace
   version    = var.cluster_configuration.self_maintenance.kured_version
   timeout    = 300
 
@@ -60,17 +94,19 @@ resource "helm_release" "reboot_daemon" {
       period = "1h0m0s"
     }
   })]
+
+  lifecycle {
+    precondition {
+      condition     = trimspace(var.cluster_configuration.self_maintenance.kured_version) != ""
+      error_message = "kured_version must be non-empty when OS auto-updates are enabled."
+    }
+  }
 }
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
 # ║  System Upgrade Controller (SUC) — Automated RKE2 patch upgrades           ║
 # ║  Downloads CRDs + controller from GitHub, creates server + agent Plans     ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
-
-data "http" "suc_crd_manifest" {
-  count = local.enable_suc_download ? 1 : 0
-  url   = "${local.suc_base_url}/crd.yaml"
-}
 
 # DECISION: Use sha1() of document content as for_each key instead of list index.
 # Why: List-index keys (0, 1, 2...) are fragile — if an upstream CRD is added or
@@ -85,11 +121,13 @@ resource "kubectl_manifest" "suc_crds" {
   } : {}
 
   yaml_body = each.value
-}
 
-data "http" "suc_controller_manifest" {
-  count = local.enable_suc_download ? 1 : 0
-  url   = "${local.suc_base_url}/system-upgrade-controller.yaml"
+  lifecycle {
+    precondition {
+      condition     = !local.enable_suc_download || length(local.suc_crd_documents) > 0
+      error_message = "SUC CRD manifest set is empty after parsing; verify downloaded YAML content."
+    }
+  }
 }
 
 # Namespace resources must be applied before other controller resources.
@@ -103,6 +141,19 @@ resource "kubectl_manifest" "suc_namespace" {
   } : {}
 
   yaml_body = each.value
+
+  lifecycle {
+    # DECISION: Require explicit Namespace document in SUC controller bundle.
+    # Why: Applying controller objects before namespace creation causes noisy
+    #      reconciliation failures; fail early with a direct configuration hint.
+    precondition {
+      condition = !local.enable_suc_download || length([
+        for doc in local.suc_controller_documents : doc
+        if strcontains(doc, "kind: Namespace")
+      ]) > 0
+      error_message = "SUC controller manifest bundle must include a Namespace document."
+    }
+  }
 }
 
 resource "kubectl_manifest" "suc_controller" {
@@ -114,6 +165,13 @@ resource "kubectl_manifest" "suc_controller" {
   } : {}
 
   yaml_body = each.value
+
+  lifecycle {
+    precondition {
+      condition     = !local.enable_suc_download || length(local.suc_controller_documents) > 0
+      error_message = "SUC controller manifest set is empty after parsing; verify downloaded YAML content."
+    }
+  }
 }
 
 # ── SUC Upgrade Plans ────────────────────────────────────────────────────────
@@ -125,58 +183,78 @@ resource "kubectl_manifest" "suc_controller" {
 resource "kubectl_manifest" "suc_server_upgrade_plan" {
   depends_on = [kubectl_manifest.suc_controller]
 
-  for_each = local.enable_k8s_upgrades ? toset(["server-plan"]) : toset([])
+  for_each = local.suc_server_plan_instances
 
   yaml_body = yamlencode({
     apiVersion = "upgrade.cattle.io/v1"
     kind       = "Plan"
     metadata = {
-      name      = "server-plan"
+      name      = each.key
       namespace = "system-upgrade"
       labels = {
         "rke2-upgrade" = "server"
       }
     }
     spec = {
-      concurrency = 1
+      concurrency = each.value.concurrency
       cordon      = true
       nodeSelector = {
         matchExpressions = [
           { key = "rke2-upgrade", operator = "Exists" },
           { key = "rke2-upgrade", operator = "NotIn", values = ["disabled", "false"] },
-          { key = "node-role.kubernetes.io/control-plane", operator = "In", values = ["true"] },
+          { key = each.value.role_key, operator = each.value.role_op, values = each.value.role_values },
         ]
       }
       serviceAccountName = "system-upgrade"
       prepare = {
-        image = "rancher/rke2-upgrade"
+        image = local.suc_upgrade_image
         args  = ["etcd-snapshot", "save", "--name", "pre-suc-upgrade"]
       }
       upgrade = {
-        image = "rancher/rke2-upgrade"
+        image = local.suc_upgrade_image
       }
-      channel = "https://update.rke2.io/v1-release/channels/stable"
+      channel = local.suc_upgrade_channel
     }
   })
+
+  lifecycle {
+    # DECISION: Validate SUC plan inputs before applying manifest.
+    # Why: Failing at Terraform planning time gives clearer diagnostics than
+    #      runtime reconciliation failures in system-upgrade-controller.
+    precondition {
+      condition     = each.value.concurrency > 0
+      error_message = "SUC server plan concurrency must be > 0."
+    }
+
+    precondition {
+      condition     = trimspace(local.suc_upgrade_channel) != "" && strcontains(local.suc_upgrade_channel, "https://")
+      error_message = "SUC upgrade channel must be a non-empty HTTPS URL."
+    }
+
+    precondition {
+      condition     = length(each.value.role_values) > 0
+      error_message = "SUC server plan role_values must contain at least one value."
+    }
+  }
 }
 
 resource "kubectl_manifest" "suc_agent_upgrade_plan" {
   depends_on = [kubectl_manifest.suc_controller]
 
-  for_each = local.enable_k8s_upgrades ? toset(["agent-plan"]) : toset([])
+  for_each = local.suc_agent_plan_instances
 
   yaml_body = yamlencode({
     apiVersion = "upgrade.cattle.io/v1"
     kind       = "Plan"
     metadata = {
-      name      = "agent-plan"
+      name      = each.key
       namespace = "system-upgrade"
       labels = {
         "rke2-upgrade" = "agent"
       }
     }
     spec = {
-      concurrency = 2
+      concurrency = each.value.concurrency
       cordon      = true
       drain = {
         force              = true
@@ -188,18 +266,37 @@ resource "kubectl_manifest" "suc_agent_upgrade_plan" {
         matchExpressions = [
           { key = "rke2-upgrade", operator = "Exists" },
           { key = "rke2-upgrade", operator = "NotIn", values = ["disabled", "false"] },
-          { key = "node-role.kubernetes.io/control-plane", operator = "NotIn", values = ["true"] },
+          { key = each.value.role_key, operator = each.value.role_op, values = each.value.role_values },
         ]
       }
       serviceAccountName = "system-upgrade"
       prepare = {
-        image = "rancher/rke2-upgrade"
+        image = local.suc_upgrade_image
         args  = ["prepare", "server-plan"]
       }
       upgrade = {
-        image = "rancher/rke2-upgrade"
+        image = local.suc_upgrade_image
       }
-      channel = "https://update.rke2.io/v1-release/channels/stable"
+      channel = local.suc_upgrade_channel
     }
   })
+
+  lifecycle {
+    # DECISION: Validate SUC plan inputs before applying manifest.
+    # Why: Keeps plan-time failures actionable and prevents invalid Plan CRs.
+    precondition {
+      condition     = each.value.concurrency > 0
+      error_message = "SUC agent plan concurrency must be > 0."
+    }
+
+    precondition {
+      condition     = trimspace(local.suc_upgrade_channel) != "" && strcontains(local.suc_upgrade_channel, "https://")
+      error_message = "SUC upgrade channel must be a non-empty HTTPS URL."
+    }
+
+    precondition {
+      condition     = length(each.value.role_values) > 0
+      error_message = "SUC agent plan role_values must contain at least one value."
+    }
+  }
 }

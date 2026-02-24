@@ -1,16 +1,39 @@
-# Notes
+# Simple Setup Example
 
-Try a demo deployment:
+Deploys a minimal HA RKE2 cluster on Hetzner Cloud: 3 control-plane nodes, 1 worker.
+
+## Prerequisites
+
+- OpenTofu >= 1.5
+- Hetzner Cloud API token (`HCLOUD_TOKEN` env var or `hcloud_api_token` variable)
+
+## Usage
+
 ```bash
-cp kubeconfig.yaml ~/.kube/config
+tofu init
+tofu plan
+tofu apply
 ```
 
-Deploy the example:
+After provisioning, a `kubeconfig.yaml` file is written to the working directory:
+
 ```bash
-kubectl apply -f load_example.yaml
+export KUBECONFIG="$(pwd)/kubeconfig.yaml"
+kubectl get nodes
 ```
 
-Delete the example:
+## What This Example Deploys
+
+- 3 master nodes (etcd quorum)
+- 1 worker node
+- Hetzner Cloud Controller Manager (HCCM)
+- Hetzner CSI driver with default StorageClass
+- cert-manager (ClusterIssuer-ready)
+- RKE2 built-in ingress-nginx with ModSecurity WAF enabled
+- Automatic Kubernetes upgrades via System Upgrade Controller
+
+## Cleanup
+
 ```bash
-kubectl delete -f load_example.yaml
+tofu destroy
 ```
