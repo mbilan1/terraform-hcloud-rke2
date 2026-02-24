@@ -20,9 +20,11 @@ terraform {
     }
 
     # ── AWS (Route53 DNS only) ──────────────────────────────────────────────
+    # NOTE: Upper bound widened from < 6.0.0 to < 7.0.0 to accommodate
+    # terraform-aws-modules/route53 which requires >= 6.3.0 in v5+.
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.0.0, < 6.0.0"
+      version = ">= 5.0.0, < 7.0.0"
     }
 
     # ── Kubernetes resource management ──────────────────────────────────────

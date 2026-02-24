@@ -10,6 +10,10 @@
 set -euo pipefail
 
 # Wait for Hetzner private network IP to become available via metadata API
+# NOTE: The grep+cut parsing pipeline below is derived from upstream
+# wenzel-felix/terraform-hcloud-rke2 (MIT). Enhanced here with
+# --connect-timeout, || true, and while-loop retry.
+# See: NOTICE — Upstream-derived patterns, C1
 NODE_IP=""
 while [[ "$NODE_IP" = "" ]]; do
   NODE_IP=$(curl -s --connect-timeout 5 http://169.254.169.254/hetzner/v1/metadata/private-networks | grep "ip:" | cut -f 3 -d" " || true)

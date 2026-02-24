@@ -146,6 +146,11 @@ resource "terraform_data" "wait_for_cluster_ready" {
 }
 
 # --- Fetch kubeconfig from master[0] ---
+# NOTE: The remote_file approach (tenstad/remote provider, resource name
+# "kubeconfig", sudo = true, timeout = 500) is derived from upstream
+# wenzel-felix/terraform-hcloud-rke2 (MIT). Rewritten here with different
+# host source, dependency chain, and extensive depends_on rationale.
+# See: NOTICE — Upstream-derived patterns, C2
 
 data "remote_file" "kubeconfig" {
   depends_on = [

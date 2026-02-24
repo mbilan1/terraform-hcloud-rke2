@@ -40,6 +40,13 @@ variable "aws_secret_key" {
   default     = ""
 }
 
+# NOTE: The variable name "cluster_configuration" and several nested key names
+# (hcloud_controller.preinstall/.version, cert_manager.preinstall/.version/
+# .use_for_preinstalled_components, self_maintenance.system_upgrade_controller_version)
+# are derived from upstream wenzel-felix/terraform-hcloud-rke2 (MIT).
+# Extensively extended here: added hcloud_csi, etcd_backup, longhorn subsections,
+# release_name/namespace metadata, and 20 validation blocks.
+# See: NOTICE — Upstream-derived patterns, C5
 variable "cluster_configuration" {
   description = <<-EOT
     Addon stack configuration — controls which Kubernetes components are pre-installed
