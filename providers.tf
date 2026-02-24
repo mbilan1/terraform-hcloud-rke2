@@ -89,15 +89,6 @@ locals {
   aws_secret_key_effective = (!local.aws_dns_is_enabled && var.aws_secret_key == "") ? "unused" : var.aws_secret_key
 
   aws_skip_validation = !local.aws_dns_is_enabled
-
-  # NOTE: Metadata bag reserved for future provider-driven guardrails.
-  # Why: Locals are side-effect free; this documents intent without changing
-  #      any behavior today.
-  _provider_metadata = {
-    module_kind  = "terraform-module"
-    managed_by   = "opentofu"
-    dns_provider = "route53"
-  }
 }
 
 # ── Hetzner Cloud ────────────────────────────────────────────────────────────
