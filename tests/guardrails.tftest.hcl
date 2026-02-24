@@ -275,7 +275,9 @@ run "kubernetes_version_rejects_bad_format" {
     kubernetes_version = "1.31.6"
   }
 
-  expect_failures = [check.kubernetes_version_format_when_pinned]
+  # NOTE: Variable-level validation{} fires before the check{} block runs,
+  # so we must expect the variable error here, not the guardrail check.
+  expect_failures = [var.kubernetes_version]
 }
 
 run "kubernetes_version_accepts_empty" {
