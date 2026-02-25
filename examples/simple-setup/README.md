@@ -4,7 +4,7 @@ Deploys a minimal HA RKE2 cluster on Hetzner Cloud: 3 control-plane nodes, 1 wor
 
 ## Prerequisites
 
-- OpenTofu >= 1.5
+- OpenTofu >= 1.7
 - Hetzner Cloud API token (`HCLOUD_TOKEN` env var or `hcloud_api_token` variable)
 
 ## Usage

@@ -9,17 +9,17 @@
 ```
 Terraform (L3)                     GitOps / Helmfile (L4)
 ┌─────────────────────┐           ┌──────────────────────────┐
-│ Servers, LBs, DNS   │           │ cert-manager             │
-│ Network, Firewall   │──────────►│ Longhorn                 │
-│ Cloud-init (HCCM)   │ kubeconfig│ Kured + SUC              │
-│ SSH keys            │           │ Harmony (Open edX)       │
-└─────────────────────┘           │ Ingress configuration    │
+│ Servers, LBs, DNS   │           │ HCCM (first!)            │
+│ Network, Firewall   │──────────►│ cert-manager             │
+│ Cloud-init bootstrap│ kubeconfig│ Longhorn                 │
+│ SSH keys            │           │ Kured + SUC              │
+└─────────────────────┘           │ Harmony (Open edX)       │
                                   └──────────────────────────┘
 ```
 
-HCCM (Hetzner Cloud Controller Manager) deploys at bootstrap via RKE2
-HelmChart manifests in cloud-init — it is the only chart managed by
-the infrastructure layer (chicken-egg: nodes need CCM to reach Ready).
+HCCM (Hetzner Cloud Controller Manager) must be deployed **first** via
+Helmfile after cluster bootstrap. Nodes carry an `uninitialized` taint
+until HCCM clears it. See `charts/hccm/README.md` for details.
 
 ## Quick Start
 
@@ -39,14 +39,23 @@ helmfile -f helmfile.yaml apply
 ```
 charts/
 ├── helmfile.yaml              # Declarative release definitions
+├── hccm/
+│   ├── values.yaml            # HCCM Helm values
+│   ├── manifests/
+│   │   └── secret.yaml        # Template Secret for hcloud credentials
+│   └── README.md              # HCCM deployment docs
 ├── cert-manager/
-│   └── values.yaml            # cert-manager Helm values
+│   ├── values.yaml            # cert-manager Helm values
+│   └── manifests/
+│       └── clusterissuer.yaml # Let's Encrypt ClusterIssuer
 ├── longhorn/
-│   └── values.yaml            # Longhorn distributed storage values
+│   ├── values.yaml            # Longhorn distributed storage values
+│   └── manifests/
+│       └── iscsi-installer.yaml
 ├── kured/
 │   └── values.yaml            # Kured reboot daemon values
 ├── system-upgrade-controller/
-│   ├── values.yaml            # SUC (if Helm chart available)
+│   ├── README.md              # SUC deployment docs
 │   └── manifests/             # Raw manifests for SUC + upgrade plans
 │       ├── server-plan.yaml
 │       └── agent-plan.yaml
@@ -61,11 +70,12 @@ charts/
 Addons have dependencies. Deploy in this order (Helmfile handles this
 automatically via `needs:`):
 
-1. **cert-manager** — CRDs and controller (other charts reference ClusterIssuers)
-2. **Longhorn** — distributed storage (PVCs depend on StorageClass)
-3. **Kured** — reboot daemon (independent, but after storage)
-4. **SUC** — System Upgrade Controller + plans (independent)
-5. **Harmony** — Open edX platform (depends on cert-manager + storage)
+1. **HCCM** — Cloud Controller Manager (must be first — clears node taints)
+2. **cert-manager** — CRDs and controller (other charts reference ClusterIssuers)
+3. **Longhorn** — distributed storage (PVCs depend on StorageClass)
+4. **Kured** — reboot daemon (independent, but after storage)
+5. **SUC** — System Upgrade Controller + plans (independent)
+6. **Harmony** — Open edX platform (depends on cert-manager + storage)
 
 ## Migration from Terraform-Managed Addons
 

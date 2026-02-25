@@ -85,7 +85,6 @@ run "firewall_has_canal_vxlan_udp_8472" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
   }
 
   assert {
@@ -106,7 +105,6 @@ run "firewall_vxlan_not_open_to_internet" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
   }
 
   assert {
@@ -124,7 +122,6 @@ run "firewall_has_canal_wireguard_udp_51820_51821" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
   }
 
   assert {
@@ -142,7 +139,6 @@ run "firewall_has_essential_internal_tcp_rules" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
   }
 
   assert {

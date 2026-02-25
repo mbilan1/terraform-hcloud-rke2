@@ -75,7 +75,6 @@ run "minimal_setup_plans_successfully" {
   variables {
     cluster_domain      = "example.com"
     hcloud_api_token    = "mock-token"
-    domain              = "minimal.example.com"
     control_plane_count = 1
     agent_node_count    = 0
   }
@@ -91,7 +90,6 @@ run "openedx_tutor_pattern_plans_successfully" {
   variables {
     cluster_domain          = "example.com"
     hcloud_api_token        = "mock-token"
-    domain                  = "openedx.example.com"
     rke2_cluster_name       = "openedx"
     control_plane_count     = 3
     agent_node_count        = 3

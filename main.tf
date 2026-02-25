@@ -5,7 +5,7 @@
 # Why: HashiCorp "split a module" pattern — root declares variables/providers,
 #      child modules contain all resource logic. This gives clear layer boundaries:
 #        modules/infrastructure/ (L3) — servers, LBs, network, cloud-init, readiness
-#        modules/addons/         (L4) — Helm charts, K8s resources, lifecycle
+#        charts/                 (L4) — Helmfile + per-addon values (GitOps, not Terraform)
 # See: https://developer.hashicorp.com/terraform/language/modules/develop/refactoring
 #      docs/ARCHITECTURE.md — Module Architecture
 # ──────────────────────────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 terraform {
-  required_version = ">= 1.5.0"
+  required_version = ">= 1.7.0"
 
   required_providers {
     hcloud = {
@@ -38,7 +38,7 @@ module "rke2" {
   source = "../.."
 
   hcloud_api_token  = var.hcloud_token
-  domain            = var.cluster_domain
+  cluster_domain    = var.cluster_domain
   rke2_cluster_name = var.rke2_cluster_name
 
   # DNS managed separately via Route53 module below

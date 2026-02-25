@@ -83,7 +83,6 @@ run "aws_credentials_rejects_partial" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     aws_access_key   = "AKIAEXAMPLE"
     aws_secret_key   = ""
   }
@@ -97,7 +96,6 @@ run "aws_credentials_accepts_both_set" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     aws_access_key   = "AKIAEXAMPLE"
     aws_secret_key   = "secretkey123"
   }
@@ -109,7 +107,6 @@ run "aws_credentials_accepts_both_empty" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     aws_access_key   = ""
     aws_secret_key   = ""
   }
@@ -125,7 +122,6 @@ run "workers_country_policy_passes_germany" {
   variables {
     cluster_domain                 = "example.com"
     hcloud_api_token               = "mock-token"
-    domain                         = "test.example.com"
     enforce_single_country_workers = true
     worker_node_locations          = ["nbg1", "fsn1"]
   }
@@ -137,7 +133,6 @@ run "workers_country_policy_passes_finland" {
   variables {
     cluster_domain                 = "example.com"
     hcloud_api_token               = "mock-token"
-    domain                         = "test.example.com"
     enforce_single_country_workers = true
     worker_node_locations          = ["hel1"]
   }
@@ -149,7 +144,6 @@ run "workers_country_policy_rejects_mixed" {
   variables {
     cluster_domain                 = "example.com"
     hcloud_api_token               = "mock-token"
-    domain                         = "test.example.com"
     enforce_single_country_workers = true
     worker_node_locations          = ["hel1", "nbg1"]
   }
@@ -167,7 +161,6 @@ run "kubernetes_version_rejects_bad_format" {
   variables {
     cluster_domain     = "example.com"
     hcloud_api_token   = "mock-token"
-    domain             = "test.example.com"
     kubernetes_version = "1.31.6"
   }
 
@@ -182,7 +175,6 @@ run "kubernetes_version_accepts_empty" {
   variables {
     cluster_domain     = "example.com"
     hcloud_api_token   = "mock-token"
-    domain             = "test.example.com"
     kubernetes_version = ""
   }
 }
@@ -193,7 +185,6 @@ run "kubernetes_version_accepts_valid_format" {
   variables {
     cluster_domain     = "example.com"
     hcloud_api_token   = "mock-token"
-    domain             = "test.example.com"
     kubernetes_version = "v1.31.6+rke2r1"
   }
 }
@@ -208,7 +199,6 @@ run "harmony_requires_workers" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     agent_node_count = 0
     harmony_enabled  = true
   }
@@ -240,7 +230,6 @@ run "etcd_backup_rejects_missing_s3" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     cluster_configuration = {
       etcd_backup = {
         enabled = true
@@ -258,7 +247,6 @@ run "etcd_backup_passes_with_s3" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     cluster_configuration = {
       etcd_backup = {
         enabled       = true
@@ -276,7 +264,6 @@ run "etcd_backup_passes_when_disabled" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     cluster_configuration = {
       etcd_backup = {
         enabled = false

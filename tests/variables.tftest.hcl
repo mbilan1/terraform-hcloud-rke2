@@ -84,12 +84,11 @@ run "defaults_pass_validation" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token-for-testing"
-    domain           = "test.example.com"
   }
 }
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  UT-V02: domain — must not be empty                                       ║
+# ║  UT-V02: cluster_domain — must not be empty                                ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 run "domain_rejects_empty_string" {
   command = plan
@@ -97,7 +96,6 @@ run "domain_rejects_empty_string" {
   variables {
     cluster_domain   = ""
     hcloud_api_token = "mock-token"
-    domain           = ""
   }
 
   expect_failures = [var.cluster_domain]
@@ -112,7 +110,6 @@ run "master_count_rejects_two" {
   variables {
     cluster_domain      = "example.com"
     hcloud_api_token    = "mock-token"
-    domain              = "test.example.com"
     control_plane_count = 2
   }
 
@@ -128,7 +125,6 @@ run "master_count_accepts_one" {
   variables {
     cluster_domain      = "example.com"
     hcloud_api_token    = "mock-token"
-    domain              = "test.example.com"
     control_plane_count = 1
   }
 }
@@ -142,7 +138,6 @@ run "master_count_accepts_three" {
   variables {
     cluster_domain      = "example.com"
     hcloud_api_token    = "mock-token"
-    domain              = "test.example.com"
     control_plane_count = 3
   }
 }
@@ -156,7 +151,6 @@ run "master_count_accepts_five" {
   variables {
     cluster_domain      = "example.com"
     hcloud_api_token    = "mock-token"
-    domain              = "test.example.com"
     control_plane_count = 5
   }
 }
@@ -170,7 +164,6 @@ run "rke2_cluster_name_rejects_uppercase" {
   variables {
     cluster_domain    = "example.com"
     hcloud_api_token  = "mock-token"
-    domain            = "test.example.com"
     rke2_cluster_name = "MyCluster"
   }
 
@@ -183,7 +176,6 @@ run "rke2_cluster_name_rejects_hyphens" {
   variables {
     cluster_domain    = "example.com"
     hcloud_api_token  = "mock-token"
-    domain            = "test.example.com"
     rke2_cluster_name = "my-cluster"
   }
 
@@ -196,7 +188,6 @@ run "rke2_cluster_name_rejects_too_long" {
   variables {
     cluster_domain    = "example.com"
     hcloud_api_token  = "mock-token"
-    domain            = "test.example.com"
     rke2_cluster_name = "aaaaabbbbbcccccddddde"
   }
 
@@ -209,7 +200,6 @@ run "rke2_cluster_name_accepts_valid" {
   variables {
     cluster_domain    = "example.com"
     hcloud_api_token  = "mock-token"
-    domain            = "test.example.com"
     rke2_cluster_name = "prod01"
   }
 }
@@ -223,7 +213,6 @@ run "cni_plugin_rejects_invalid" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     cni_plugin       = "flannel"
   }
 
@@ -236,7 +225,6 @@ run "cni_plugin_accepts_cilium" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     cni_plugin       = "cilium"
   }
 }
@@ -250,7 +238,6 @@ run "lb_ports_rejects_zero" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     extra_lb_ports   = [0]
   }
 
@@ -263,7 +250,6 @@ run "lb_ports_rejects_too_large" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     extra_lb_ports   = [65536]
   }
 
@@ -276,7 +262,6 @@ run "lb_ports_accepts_valid" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     extra_lb_ports   = [8080, 8443]
   }
 }
@@ -290,7 +275,6 @@ run "hcloud_network_cidr_rejects_invalid" {
   variables {
     cluster_domain      = "example.com"
     hcloud_api_token    = "mock-token"
-    domain              = "test.example.com"
     hcloud_network_cidr = "not-a-cidr"
   }
 
@@ -303,7 +287,6 @@ run "hcloud_network_cidr_accepts_valid" {
   variables {
     cluster_domain      = "example.com"
     hcloud_api_token    = "mock-token"
-    domain              = "test.example.com"
     hcloud_network_cidr = "172.16.0.0/12"
   }
 }
@@ -317,7 +300,6 @@ run "subnet_address_rejects_invalid" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     subnet_address   = "999.999.999.0/24"
   }
 
@@ -333,7 +315,6 @@ run "ssh_cidrs_rejects_invalid" {
   variables {
     cluster_domain    = "example.com"
     hcloud_api_token  = "mock-token"
-    domain            = "test.example.com"
     ssh_allowed_cidrs = ["not-a-cidr"]
   }
 
@@ -349,7 +330,6 @@ run "k8s_api_cidrs_rejects_empty" {
   variables {
     cluster_domain        = "example.com"
     hcloud_api_token      = "mock-token"
-    domain                = "test.example.com"
     k8s_api_allowed_cidrs = []
   }
 
@@ -362,7 +342,6 @@ run "k8s_api_cidrs_rejects_invalid" {
   variables {
     cluster_domain        = "example.com"
     hcloud_api_token      = "mock-token"
-    domain                = "test.example.com"
     k8s_api_allowed_cidrs = ["192.168.1.0/24", "garbage"]
   }
 

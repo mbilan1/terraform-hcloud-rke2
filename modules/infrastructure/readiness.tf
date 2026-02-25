@@ -192,7 +192,6 @@ resource "terraform_data" "pre_upgrade_snapshot" {
 # Why: Keeps scripts/ immutable (cloud-init only). Health check logic is
 #      tightly coupled to the Terraform resource lifecycle — inline is clearer.
 #      HTTP URL checks use a bash loop over a Terraform-joined string.
-#      Longhorn health checks are handled separately in modules/addons/.
 # See: docs/PLAN-operational-readiness.md — Step 4
 # ──────────────────────────────────────────────────────────────────────────────
 resource "terraform_data" "cluster_health_check" {

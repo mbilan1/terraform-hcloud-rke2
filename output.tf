@@ -65,6 +65,11 @@ output "cluster_worker_nodes_ipv4" {
   value       = module.infrastructure.worker_nodes_ipv4
 }
 
+output "cluster_ready" {
+  description = "Dependency anchor — signals that the cluster is bootstrapped: API is reachable, all nodes are Ready, and health checks passed"
+  value       = module.infrastructure.cluster_ready
+}
+
 output "etcd_backup_enabled" {
   description = "Whether automated etcd snapshots with S3 upload are enabled"
   value       = var.cluster_configuration.etcd_backup.enabled

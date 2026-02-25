@@ -77,7 +77,6 @@ run "harmony_disabled_no_ingress_lb" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     harmony_enabled  = false
   }
 
@@ -96,7 +95,6 @@ run "harmony_enabled_creates_ingress_lb" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     agent_node_count = 3
     harmony_enabled  = true
   }
@@ -116,7 +114,6 @@ run "single_master_no_additional" {
   variables {
     cluster_domain      = "example.com"
     hcloud_api_token    = "mock-token"
-    domain              = "test.example.com"
     control_plane_count = 1
   }
 
@@ -140,7 +137,6 @@ run "ha_cluster_creates_additional_masters" {
   variables {
     cluster_domain      = "example.com"
     hcloud_api_token    = "mock-token"
-    domain              = "test.example.com"
     control_plane_count = 5
   }
 
@@ -159,7 +155,6 @@ run "zero_workers" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     agent_node_count = 0
   }
 
@@ -178,7 +173,6 @@ run "workers_correct_count" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     agent_node_count = 5
   }
 
@@ -197,7 +191,6 @@ run "ssh_on_lb_disabled_by_default" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
   }
 
   assert {
@@ -215,7 +208,6 @@ run "ssh_on_lb_enabled" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     enable_ssh_on_lb = true
   }
 
@@ -234,7 +226,6 @@ run "ssh_key_file_disabled_by_default" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
   }
 
   assert {
@@ -252,7 +243,6 @@ run "ssh_key_file_enabled" {
   variables {
     cluster_domain       = "example.com"
     hcloud_api_token     = "mock-token"
-    domain               = "test.example.com"
     save_ssh_key_locally = true
   }
 
@@ -271,7 +261,6 @@ run "dns_disabled_by_default" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
   }
 
   assert {
@@ -289,7 +278,6 @@ run "ingress_lb_targets_match_workers" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     agent_node_count = 4
     harmony_enabled  = true
   }
@@ -309,7 +297,6 @@ run "control_plane_lb_always_exists" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
   }
 
   assert {
@@ -327,7 +314,6 @@ run "output_ingress_null_when_harmony_disabled" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     harmony_enabled  = false
   }
 
@@ -346,7 +332,6 @@ run "pre_upgrade_snapshot_disabled_by_default" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
   }
 
   assert {
@@ -364,7 +349,6 @@ run "pre_upgrade_snapshot_enabled_with_etcd_backup" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     cluster_configuration = {
       etcd_backup = {
         enabled       = true
@@ -390,7 +374,6 @@ run "outputs_reflect_backup_state" {
   variables {
     cluster_domain   = "example.com"
     hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
     cluster_configuration = {
       etcd_backup = {
         enabled       = true
