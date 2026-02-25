@@ -1,16 +1,15 @@
 # ──────────────────────────────────────────────────────────────────────────────
-# SAST: tfsec
+# SAST: gitleaks
 #
-# Static security analysis for Terraform/OpenTofu configurations.
-# Badge: SAST: tfsec
+# Secrets scanning — detects hardcoded API tokens, passwords, private keys.
+# Badge: SAST: gitleaks
 #
-# DECISION: Hard-fail mode — security findings block merge.
-# Why: A soft-fail SAST gate creates false sense of security.
-#      --ignore-hcl-errors handles OpenTofu parser edge cases (check blocks)
-#      without silencing actual security findings.
+# DECISION: Scan full git history on PRs, diff-only on pushes.
+# Why: PRs should verify no secrets exist in the entire branch diff.
+#      Push scans only the new commits (faster, less noise on main).
 # ──────────────────────────────────────────────────────────────────────────────
 
-name: "SAST: tfsec"
+name: "SAST: gitleaks"
 
 on:
   push:
@@ -21,18 +20,17 @@ permissions:
   contents: read
 
 jobs:
-  tfsec:
-    name: tfsec scan
+  gitleaks:
+    name: gitleaks scan
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-
-      - name: Run tfsec
-        uses: aquasecurity/tfsec-action@b466648d6e39e7c75324f25d83891162a721f2d6 # v1.0.3
         with:
-          working_directory: .
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          soft_fail: false
-          additional_args: --minimum-severity HIGH --ignore-hcl-errors
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

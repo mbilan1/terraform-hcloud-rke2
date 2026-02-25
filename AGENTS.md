@@ -346,6 +346,18 @@ When `harmony_enabled = false`:
 - **Outputs**: use `sensitive = true` for any credential-type outputs
 - **Resource naming**: prefixed with `var.cluster_name` for namespacing
 
+### Git Commit Signing
+
+All commits SHOULD be signed with GPG or SSH keys for verifiable authorship.
+This is a recommended practice, not yet enforced.
+
+```bash
+# SSH signing (recommended — simpler setup):
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub
+git config --global commit.gpgsign true
+```
+
 ### Git Commit Convention
 
 All commits MUST follow **[Conventional Commits](https://www.conventionalcommits.org/)** format. Commit messages MUST be written in **English**.
