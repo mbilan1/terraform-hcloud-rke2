@@ -56,7 +56,7 @@ module "rke2" {
   control_plane_count = local.defaults.control_plane_count
   agent_node_count    = local.defaults.agent_node_count
 
-  # Defaults: all addons enabled, no Harmony, no DNS
+  # Defaults: no Harmony, no DNS. L4 addons deployed separately via Helmfile.
 }
 
 # ──────────────────────────────────────────────────────────────────────────────

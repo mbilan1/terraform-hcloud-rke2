@@ -26,11 +26,13 @@ kubectl get nodes
 
 - 3 master nodes (etcd quorum)
 - 1 worker node
-- Hetzner Cloud Controller Manager (HCCM)
-- Hetzner CSI driver with default StorageClass
-- cert-manager (ClusterIssuer-ready)
-- RKE2 built-in ingress-nginx with ModSecurity WAF enabled
-- Automatic Kubernetes upgrades via System Upgrade Controller
+- Control-plane load balancer (K8s API + node registration)
+- Private network + subnet
+- Firewall
+- SSH key pair (exported locally via `save_ssh_key_locally = true`)
+- RKE2 built-in ingress-nginx (Harmony disabled)
+
+L4 addons (HCCM, CSI, cert-manager, etc.) are deployed separately via Helmfile — see `charts/README.md`.
 
 ## Cleanup
 
