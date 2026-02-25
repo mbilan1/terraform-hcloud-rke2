@@ -463,8 +463,9 @@ flowchart LR
 | Control | Implementation | Status |
 |---------|---------------|--------|
 | Firewall | Hetzner Cloud Firewall with cluster-wide mixed-role rules; split-by-role hardening is planned | 🟡 Partially implemented |
-| Host-level firewall (UFW) | CIS hardening enables UFW with default-deny + K8s-specific allow rules. Two independent firewall layers (Hetzner L3 + host UFW). | 🟢 Opt-in (Packer `enable_cis_hardening`) |
-| OS hardening (CIS Level 1) | Ubuntu 24.04 CIS Benchmark v1.0.0 via [ansible-lockdown/UBUNTU24-CIS](https://github.com/ansible-lockdown/UBUNTU24-CIS). Applied at Packer build time. AppArmor enforce, SSH hardening, file permissions, warning banners. | 🟢 Opt-in (Packer `enable_cis_hardening`) |
+| Host-level firewall (UFW) | CIS Section 4 disabled — Hetzner Cloud Firewall is the compensating control (filters at hypervisor level, before traffic reaches VM). UFW/nftables disabled to prevent conflicts with Kubernetes CNI iptables rules. | 🟠 Disabled (compensating control) |
+| OS hardening (CIS Level 1) | Ubuntu 24.04 CIS Benchmark v1.0.0 via [ansible-lockdown/UBUNTU24-CIS](https://github.com/ansible-lockdown/UBUNTU24-CIS). Applied at Packer build time. SSH hardening, file permissions, warning banners. | 🟢 Opt-in (Packer `enable_cis_hardening`) |
+| AppArmor | Enforce mode globally (~114 system profiles). Container-runtime profiles (busybox, crun, runc, buildah, ch-run, ch-checkns) set to complain mode for K8s compatibility. containerd CRI profile (`cri-containerd.apparmor.d`) stays enforce. Required for Open edX codejail sandbox. | 🟢 Opt-in (Packer `enable_cis_hardening`) |
 | SSH authentication | Auto-generated ED25519 key pair, no password auth | ✅ Implemented |
 | Network isolation | Private network for inter-node traffic | ✅ Implemented |
 | SSH access restriction | Configurable `ssh_allowed_cidrs` | ✅ Implemented |
@@ -498,7 +499,7 @@ flowchart LR
 
 ### Important: What This Module Does NOT Cover
 
-Security of the Ubuntu host OS can be addressed via the **optional CIS hardening** feature in the Packer image builder (`packer/`). When `enable_cis_hardening=true`, the image is built with CIS Level 1 controls applied at build time, including AppArmor enforce, UFW with K8s-specific rules, SSH hardening, and file permission controls.
+Security of the Ubuntu host OS can be addressed via the **optional CIS hardening** feature in the Packer image builder (`packer/`). When `enable_cis_hardening=true`, the image is built with CIS Level 1 controls applied at build time, including AppArmor enforce mode (with targeted complain-mode exceptions for container-runtime profiles), SSH hardening, and file permission controls. Host-level firewall (CIS Section 4) is disabled — Hetzner Cloud Firewall serves as the compensating control.
 
 **Without CIS hardening** (default): The module provisions the server and installs RKE2, but hardening the OS (sysctl tuning, unnecessary service removal, file permissions, PAM configuration) remains the operator's responsibility. See `packer/README.md` for details.
 
@@ -856,7 +857,8 @@ The path from current state to enterprise-grade, grouped by priority:
 - [ ] CIDR validation on all network variables
 - [ ] Add ACME staging option for development
 - [ ] Vendor external manifests (remove `data.http` from GitHub)
-- [x] Packer CIS hardening opt-in — CIS Level 1 via `ansible-lockdown/UBUNTU24-CIS` with UFW + K8s port rules (`packer/`)
+- [x] Packer CIS hardening opt-in — CIS Level 1 via `ansible-lockdown/UBUNTU24-CIS` with AppArmor enforce + Hetzner Cloud Firewall compensating control (`packer/`)
+- [ ] AppArmor codejail profile — custom `openedx-codejail` profile for sandboxed student code execution (install at node level, reference from pod spec)
 - [ ] CIS Level 2 incremental addition (auditd, AIDE) — requires RKE2 compatibility testing
 
 ### Mid-term

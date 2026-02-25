@@ -18,11 +18,12 @@
 ubtu24cis_level_1: true
 ubtu24cis_level_2: false
 
-# Enable all sections including Section 4 (UFW firewall).
+# NOTE: Section 4 (host-based firewall) is DISABLED — see vars/main.yml.
+# All other sections are enabled at Level 1.
 ubtu24cis_section1: true
 ubtu24cis_section2: true
 ubtu24cis_section3: true
-ubtu24cis_section4: true
+# ubtu24cis_section4 is set in vars/main.yml (false) — do not set here.
 ubtu24cis_section5: true
 ubtu24cis_section6: true
 ubtu24cis_section7: true
@@ -83,8 +84,14 @@ ubtu24cis_time_sync_tool: "systemd-timesyncd"
 # Section 3: Network
 # ──────────────────────────────────────────────────────────────────────────────
 
-# DECISION: Do NOT disable IPv6 — RKE2 supports dual-stack and some CNI plugins
-# need IPv6 loopback. Disabling via GRUB breaks pod networking.
+# DECISION: Do NOT disable IPv6 — Hetzner Cloud networking depends on it.
+# Why: Hetzner cloud-init generates netplan with IPv6 gateway (fe80::1) and
+#      IPv6 DNS servers. Disabling IPv6 at kernel level (ipv6.disable=1 in
+#      GRUB) causes systemd-networkd to fail configuring eth0 entirely,
+#      leaving the server unreachable.
+# NOTE: The actual override is in vars/main.yml (ubtu24cis_ipv6_required: true)
+#       to ensure it takes precedence over the upstream role's defaults.
+ubtu24cis_ipv6_required: true
 ubtu24cis_rule_3_1_1: false
 
 # DECISION: Do not install NetworkManager — Hetzner Cloud images use netplan/systemd-networkd.
@@ -96,21 +103,21 @@ ubtu24cis_rule_3_1_2: false
 ubtu24cis_bluetooth_service: false
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Section 4: Firewall (UFW)
+# Section 4: Firewall — DISABLED (compensating control)
 # ──────────────────────────────────────────────────────────────────────────────
 
-# DECISION: Enable UFW as host-level firewall alongside Hetzner Cloud Firewall.
-# Why: Defense-in-depth — Hetzner Firewall operates at L3 (stateless), UFW adds
-#      stateful connection tracking on the host. Two independent layers.
-# NOTE: Kubernetes-specific ports must be allowed AFTER CIS role runs.
-#       See tasks/main.yml for the post-CIS UFW allow rules.
-ubtu24cis_firewall_package: "ufw"
-
-# DECISION: Allow all outbound traffic.
-# Why: Kubernetes nodes need unrestricted egress for container image pulls,
-#      DNS resolution, NTP, apt updates, Let's Encrypt ACME, Helm chart downloads,
-#      and inter-node overlay traffic. Restricting egress breaks cluster operations.
-ubtu24cis_ufw_allow_out_ports: "all"
+# COMPROMISE: CIS Section 4 (host-based firewall) disabled entirely.
+# Why: Hetzner Cloud Firewall provides equivalent L3/L4 filtering at the
+#      hypervisor level — traffic is filtered BEFORE it reaches the VM.
+#      Host-level UFW on CIS-hardened images causes multiple conflicts:
+#      - nftables backend (`iptables-nft`) and UFW rule ordering issues
+#      - UFW conflicts with Kubernetes CNI iptables rules (Cilium, Canal)
+#      - DEFAULT_OUTPUT_POLICY="DROP" blocks DNS, image pulls, NTP
+#      - CIS role's `flush ruleset` in /etc/nftables.conf destroys UFW rules
+#      Hetzner Cloud Firewall is documented as a compensating control per
+#      CIS Benchmark guidance on cloud-native environments.
+# See: docs/ARCHITECTURE.md — Security Model
+# NOTE: The actual override is in vars/main.yml — do not set ubtu24cis_section4 here.
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Section 5: SSH & Access
@@ -177,34 +184,21 @@ ubtu24cis_exclude_unowned_search_path: >-
 ubtu24cis_suid_sgid_adjust: false
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Kubernetes-specific UFW allow rules (applied post-CIS)
-# These are consumed by tasks/main.yml, NOT by the CIS role itself.
+# Kubernetes port rules — NOT USED (Section 4 disabled)
 # ──────────────────────────────────────────────────────────────────────────────
 
-# DECISION: Define K8s ports as a variable for maintainability.
-# Why: Centralizes port definitions so operators can customize without
-#      editing tasks directly.
-rke2_ufw_rules:
-  # SSH — required for Terraform provisioners and operator access
-  - { port: "22", proto: "tcp", comment: "SSH" }
-  # Kubernetes API server
-  - { port: "6443", proto: "tcp", comment: "K8s API" }
-  # RKE2 node registration
-  - { port: "9345", proto: "tcp", comment: "RKE2 join" }
-  # HTTP/HTTPS ingress (for ingress controller)
-  - { port: "80", proto: "tcp", comment: "HTTP ingress" }
-  - { port: "443", proto: "tcp", comment: "HTTPS ingress" }
-  # etcd peer communication (masters only, but single image for both roles)
-  - { port: "2379:2380", proto: "tcp", comment: "etcd peers" }
-  # kubelet API
-  - { port: "10250", proto: "tcp", comment: "kubelet" }
-  # VXLAN overlay (Canal/Flannel CNI)
-  - { port: "8472", proto: "udp", comment: "VXLAN overlay" }
-  # WireGuard (Calico WireGuard option)
-  - { port: "51820", proto: "udp", comment: "WireGuard" }
-  # NodePort range
-  - { port: "30000:32767", proto: "tcp", comment: "NodePort TCP" }
-  - { port: "30000:32767", proto: "udp", comment: "NodePort UDP" }
-
-# Private network CIDR for unrestricted inter-node access
-rke2_private_network_cidr: "10.0.0.0/16"
+# NOTE: Hetzner Cloud Firewall (modules/infrastructure/firewall.tf) handles
+# all port filtering. The rules below are kept as documentation of required
+# ports for operators who configure the Hetzner Cloud Firewall.
+#
+# Required ports:
+#   TCP 22       — SSH (Terraform provisioners, operator access)
+#   TCP 6443     — Kubernetes API server
+#   TCP 9345     — RKE2 node registration
+#   TCP 80/443   — HTTP/HTTPS ingress
+#   TCP 2379:2380 — etcd peer communication
+#   TCP 10250    — kubelet API
+#   UDP 8472     — VXLAN overlay (Canal/Flannel CNI)
+#   UDP 51820    — WireGuard (Calico option)
+#   TCP/UDP 30000:32767 — NodePort range
+#   10.0.0.0/16  — Private network (inter-node, all ports)

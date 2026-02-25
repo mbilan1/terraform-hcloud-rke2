@@ -10,6 +10,21 @@
 # See: https://developer.hashicorp.com/terraform/language/post-apply-operations
 set -euo pipefail
 
+# WORKAROUND: Ensure root SSH login is allowed for Terraform provisioners.
+# Why: CIS-hardened images (e.g. UBUNTU24-CIS Level 1) set PermitRootLogin=no,
+#      but Terraform provisioners (wait_for_api, kubeconfig fetch) must SSH as
+#      root. Hetzner Cloud also provisions servers with root-only SSH access.
+#      Setting 'prohibit-password' allows key-based root login only (no password).
+# TODO: Remove when a dedicated non-root provisioner user is implemented.
+if grep -q '^PermitRootLogin no' /etc/ssh/sshd_config 2>/dev/null; then
+  sed -i 's/^PermitRootLogin no$/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+  # WORKAROUND: Ubuntu 24.04 uses ssh.service, not sshd.service.
+  # Why: The service was renamed in newer Ubuntu versions. Try both names
+  #      to support CIS-hardened and standard images alike.
+  # TODO: Remove sshd fallback when Ubuntu 22.04 support is dropped.
+  systemctl restart ssh || systemctl restart sshd || true
+fi
+
 # DECISION: Resolve node private IP from Hetzner metadata first.
 # Why: For Hetzner-specific clusters, metadata is the authoritative source for
 #      instance network identity and avoids ambiguity if multiple RFC1918
@@ -37,11 +52,14 @@ detect_private_ipv4_kernel() {
 }
 
 # WORKAROUND: Retry for a bounded time because private NIC attachment can lag
-# a few seconds behind cloud-init startup on fresh Hetzner boots.
+# significantly behind cloud-init startup on fresh Hetzner boots.
+# Why: Hetzner attaches the private NIC asynchronously — observed delays of
+#      3+ minutes between cloud-init modules:final and NIC appearance.
+#      120s was insufficient; 300s provides safe margin.
 NODE_IP=""
 NODE_IP_SOURCE=""
 ELAPSED=0
-TIMEOUT=120
+TIMEOUT=300
 until [[ -n "$NODE_IP" ]]; do
   NODE_IP="$(detect_private_ipv4_metadata || true)"
   NODE_IP_SOURCE="metadata"
@@ -64,7 +82,10 @@ done
 # DECISION: Validate detected IP shape before mutating RKE2 config.
 # Why: A strict guard prevents propagating malformed/non-private addresses into
 #      node-ip, which would later cause harder-to-debug cluster networking issues.
-if ! [[ "$NODE_IP" =~ ^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+# NOTE: 10.x prefix needs two extra octet slots (10.X.Y.Z = 4 octets total),
+#       unlike 192.168.X.Y and 172.[16-31].X.Y which already consume two octets
+#       in the prefix group.
+if ! [[ "$NODE_IP" =~ ^(10\.[0-9]{1,3}\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
   echo "ERROR: Detected node IP is not a valid RFC1918 IPv4 address: '$NODE_IP'" >&2
   ip -o -4 addr show scope global || true
   exit 1
