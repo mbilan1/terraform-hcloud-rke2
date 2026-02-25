@@ -91,8 +91,8 @@ module "rke2" {
 # Why: Registry modules with exact version pins are immutable (registry prevents version overwrites).
 #      Git URL with commit hash would lose submodule resolution and registry signature verification.
 #      CKV_TF_1 is designed for git-sourced modules where tags can be moved.
-#checkov:skip=CKV_TF_1:Registry module pinned to exact version 6.1.1 — immutable via registry
 module "route53" {
+  #checkov:skip=CKV_TF_1:Registry module pinned to exact version 6.1.1 — immutable via registry
   source  = "terraform-aws-modules/route53/aws"
   version = "6.1.1"
 
