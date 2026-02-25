@@ -143,16 +143,23 @@ terraform-hcloud-rke2/            # Root module (shim)
 │   └── ingress/                  # RKE2 built-in ingress config
 │       └── helmchartconfig.yaml
 │
-└── packer/                       # L1+L2: Machine image build (scaffold)
+└── packer/                       # L1+L2: Machine image build
     ├── rke2-base.pkr.hcl         # Packer template for Hetzner Cloud
-    └── ansible/                  # Ansible roles for OS preparation
+    ├── scripts/
+    │   └── install-ansible.sh    # Bootstrap Ansible + Galaxy deps
+    └── ansible/
+        ├── playbook.yml          # Main playbook (rke2-base + optional CIS)
+        ├── requirements.yml      # Galaxy deps (CIS role, collections)
+        └── roles/
+            ├── rke2-base/        # Always: packages, kernel, RKE2 binaries
+            └── cis-hardening/    # Optional: CIS Level 1 wrapper (feature flag)
 ```
 
 ### Layer Separation
 
 | Layer | Directory | Responsibility | Tools |
 |:-----:|-----------|----------------|-------|
-| L1+L2 | `packer/` | OS hardening, package pre-install (scaffold) | Packer + Ansible |
+| L1+L2 | `packer/` | OS hardening (opt-in CIS Level 1), package pre-install, RKE2 binary pre-install | Packer + Ansible + [ansible-lockdown/UBUNTU24-CIS](https://github.com/ansible-lockdown/UBUNTU24-CIS) |
 | L3 | `modules/infrastructure/` | Cloud resources, networking, servers, cloud-init, cluster bootstrap, kubeconfig | OpenTofu (hcloud, cloudinit, remote, aws, random, tls, local) |
 | L4 | `charts/` | Kubernetes addons deployed after cluster is ready | Helmfile + kubectl (not Terraform) |
 | Shim | Root (`/`) | Variable routing, provider config, guardrails, `moved` blocks | OpenTofu (7 providers configured here) |
@@ -436,7 +443,7 @@ flowchart LR
 flowchart LR
     subgraph security["Security Layers"]
         direction TB
-        L1["Layer 1: Infrastructure\nHetzner Firewall\nSSH key auth (ED25519)\nPrivate network isolation"]
+        L1["Layer 1: Infrastructure\nHetzner Firewall + UFW (CIS opt-in)\nSSH key auth (ED25519)\nPrivate network isolation\nCIS Level 1 OS hardening (opt-in)"]
         L2["Layer 2: Kubernetes\nRBAC · Pod Security Standards\nSecrets encryption at rest\nNetwork Policies"]
         L3["Layer 3: Application\ncert-manager TLS everywhere\nModSecurity WAF (Harmony-off only)"]
         L4["Layer 4: Operations\nSAST / IaC security scanning\nAudit logging\nAutomated OS patching (Kured)"]
@@ -456,6 +463,8 @@ flowchart LR
 | Control | Implementation | Status |
 |---------|---------------|--------|
 | Firewall | Hetzner Cloud Firewall with cluster-wide mixed-role rules; split-by-role hardening is planned | 🟡 Partially implemented |
+| Host-level firewall (UFW) | CIS hardening enables UFW with default-deny + K8s-specific allow rules. Two independent firewall layers (Hetzner L3 + host UFW). | 🟢 Opt-in (Packer `enable_cis_hardening`) |
+| OS hardening (CIS Level 1) | Ubuntu 24.04 CIS Benchmark v1.0.0 via [ansible-lockdown/UBUNTU24-CIS](https://github.com/ansible-lockdown/UBUNTU24-CIS). Applied at Packer build time. AppArmor enforce, SSH hardening, file permissions, warning banners. | 🟢 Opt-in (Packer `enable_cis_hardening`) |
 | SSH authentication | Auto-generated ED25519 key pair, no password auth | ✅ Implemented |
 | Network isolation | Private network for inter-node traffic | ✅ Implemented |
 | SSH access restriction | Configurable `ssh_allowed_cidrs` | ✅ Implemented |
@@ -489,9 +498,9 @@ flowchart LR
 
 ### Important: What This Module Does NOT Cover
 
-Security of the Ubuntu host OS itself (on which RKE2 runs) **must be addressed separately**. The module provisions the server and installs RKE2, but hardening the OS (sysctl tuning, unnecessary service removal, file permissions, PAM configuration) is the operator's responsibility.
+Security of the Ubuntu host OS can be addressed via the **optional CIS hardening** feature in the Packer image builder (`packer/`). When `enable_cis_hardening=true`, the image is built with CIS Level 1 controls applied at build time, including AppArmor enforce, UFW with K8s-specific rules, SSH hardening, and file permission controls.
 
-Recommended approach: apply a hardening baseline via Ansible after provisioning — for example, the [dev-sec/ansible-collection-hardening](https://github.com/dev-sec/ansible-collection-hardening) collection.
+**Without CIS hardening** (default): The module provisions the server and installs RKE2, but hardening the OS (sysctl tuning, unnecessary service removal, file permissions, PAM configuration) remains the operator's responsibility. See `packer/README.md` for details.
 
 The module's Terraform code, Helm charts, and Kubernetes manifests are continuously scanned via CI (Checkov, KICS, tfsec — see [CI Quality Gates](#ci-quality-gates)).
 
@@ -830,6 +839,9 @@ The module contains many deliberate compromises. Each is documented in code comm
 | L3/L4 separation | Separation vs workflow complexity | Infrastructure (L3) is managed by Terraform (`modules/infrastructure/`). Addons (L4) are managed by Helmfile (`charts/`). This eliminates the chicken-and-egg problem of K8s providers in the same apply that creates the cluster, but requires a two-step deploy: `tofu apply` then `helmfile apply`. |
 | Cloud-init in infrastructure | Simplicity vs separation | Cloud-init templates live in `modules/infrastructure/` rather than a separate "bootstrap" module. Extracting them would create a circular dependency (cloud-init needs LB IP + RKE2 token from infrastructure). |
 | Check blocks in root | Testability vs locality | All `check {}` blocks are in root `guardrails.tf` rather than co-located with the resources they guard. Required because `tofu test` references checks via root-scoped addresses (`check.name`). |
+| UFW + Hetzner Firewall coexistence | Defense-in-depth vs complexity | When CIS hardening is enabled, UFW runs on each node alongside the Hetzner Cloud Firewall. Hetzner Firewall operates at L3 (stateless), UFW adds stateful host-level filtering. Requires maintaining K8s port allow-rules in the CIS wrapper role (`packer/ansible/roles/cis-hardening/`). |
+| CIS Level 1 only | Security vs stability | CIS Level 2 controls (auditd, AIDE, restrictive mounts) may conflict with containerd, kubelet, and etcd. Level 1 provides a strong baseline without risking RKE2 breakage. Level 2 controls to be added incrementally after testing. |
+| Single hardened image for both roles | Simplicity vs granularity | Master and worker nodes use the same Packer snapshot. Both RKE2 server and agent binaries are pre-installed. Role differentiation happens at cloud-init time (`systemctl start rke2-server` vs `rke2-agent`). Avoids double build pipeline. |
 
 ---
 
@@ -844,6 +856,8 @@ The path from current state to enterprise-grade, grouped by priority:
 - [ ] CIDR validation on all network variables
 - [ ] Add ACME staging option for development
 - [ ] Vendor external manifests (remove `data.http` from GitHub)
+- [x] Packer CIS hardening opt-in — CIS Level 1 via `ansible-lockdown/UBUNTU24-CIS` with UFW + K8s port rules (`packer/`)
+- [ ] CIS Level 2 incremental addition (auditd, AIDE) — requires RKE2 compatibility testing
 
 ### Mid-term
 
@@ -864,7 +878,8 @@ The path from current state to enterprise-grade, grouped by priority:
 - [ ] Pod Security Standards / admission policies
 - [ ] Kubernetes audit logging
 - [ ] Zero-downtime cluster upgrade strategy
-- [ ] Full `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md`
+- [x] Full `CHANGELOG.md`, `SECURITY.md`
+- [ ] `CONTRIBUTING.md`
 - [x] Integration tests — `tofu plan` with real providers (`integration-plan.yml`) + E2E apply/smoke/destroy (`e2e-apply.yml`)
 
 ---
@@ -875,7 +890,7 @@ The following are intentionally **not** part of this module:
 
 | Topic | Reason |
 |-------|--------|
-| **OS-level hardening** | Server hardening is the operator's responsibility. Use Ansible roles (e.g., `dev-sec/ansible-collection-hardening`) after provisioning. |
+| **OS-level hardening (beyond CIS L1)** | CIS Level 1 hardening is available as an opt-in Packer feature (`enable_cis_hardening=true`). CIS Level 2 and custom hardening beyond the benchmark remain the operator's responsibility. |
 | **Application deployment** | The module deploys infrastructure and the Harmony chart. Individual Open edX instance deployment (Tutor) is a separate concern. |
 | **Backup and disaster recovery** | The module provides etcd S3 backup (RKE2 native) and Longhorn native PVC backup to Hetzner Object Storage (experimental). Application-level consistency (pre-backup hooks, `mysqldump`/`mongodump`) is the operator's responsibility at the Tutor deployment layer. Restore drills and backup monitoring are on the roadmap. |
 | **Multi-cluster federation** | The module deploys a single cluster. Multi-cluster patterns are out of scope. |

@@ -14,6 +14,14 @@ This project is experimental and does not yet follow [Semantic Versioning](https
 - gitleaks secrets scanning in CI pipeline
 - Provider caching in CI workflows (`actions/cache`)
 - `CHANGELOG.md` (this file)
+- **Packer CIS hardening flow** — opt-in CIS Level 1 hardening via `enable_cis_hardening` feature flag
+  - `ansible-lockdown/UBUNTU24-CIS` role (v1.0.4, CIS Ubuntu 24.04 Benchmark v1.0.0)
+  - UFW firewall with Kubernetes-specific allow rules (defense-in-depth alongside Hetzner Cloud Firewall)
+  - AppArmor enforce mode, SSH hardening, file permission controls
+  - `cis-hardening` wrapper role with RKE2-safe variable overrides
+  - Ansible Galaxy `requirements.yml` for dependency management
+  - Snapshot labels: `cis-hardened`, `cis-benchmark` for image identification
+  - `/etc/cis-hardening-applied` marker file for runtime verification
 
 ### Changed
 - tfsec workflow: changed from soft-fail (decorative) to hard-fail (blocking gate)

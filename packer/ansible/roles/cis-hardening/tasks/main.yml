@@ -1,0 +1,70 @@
+---
+# Tasks for cis-hardening wrapper role
+#
+# DECISION: Run CIS hardening role, then add Kubernetes-specific UFW rules.
+# Why: The CIS role configures UFW with restrictive defaults. Kubernetes needs
+#      specific ports open for API, etcd, kubelet, overlay, and ingress traffic.
+#      Adding rules AFTER the CIS role ensures they are not overwritten.
+# See: defaults/main.yml for the full list of ports and rationale.
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Phase 1: Run upstream CIS hardening
+# ──────────────────────────────────────────────────────────────────────────────
+
+- name: Apply CIS Level 1 hardening (UBUNTU24-CIS)
+  ansible.builtin.include_role:
+    name: ansible-lockdown.UBUNTU24-CIS
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Phase 2: Post-CIS Kubernetes port rules
+#
+# WORKAROUND: UFW rules must be added after CIS role completes.
+# Why: The CIS role may reset UFW to default-deny and configure its own
+#      allow rules. Our Kubernetes-specific rules must take precedence.
+# TODO: Remove individual port rules if Hetzner Cloud Firewall is used
+#       as the sole perimeter firewall (reducing UFW to deny-by-default only).
+# ──────────────────────────────────────────────────────────────────────────────
+
+- name: Allow Kubernetes-specific ports through UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    comment: "RKE2: {{ item.comment }}"
+  loop: "{{ rke2_ufw_rules }}"
+
+- name: Allow all traffic from private network (inter-node communication)
+  # DECISION: Unrestricted access from the private network CIDR.
+  # Why: etcd, kubelet, CNI overlay, and pod-to-pod traffic all traverse the
+  #      private network. Restricting individual ports here would break as new
+  #      components are added. The Hetzner Cloud Firewall provides the external
+  #      perimeter; UFW here is defense-in-depth for host-level isolation.
+  community.general.ufw:
+    rule: allow
+    src: "{{ rke2_private_network_cidr }}"
+    comment: "RKE2: private network (inter-node)"
+
+- name: Enable UFW with default deny incoming
+  community.general.ufw:
+    state: enabled
+    default: deny
+    direction: incoming
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Phase 3: Write hardening metadata
+# ──────────────────────────────────────────────────────────────────────────────
+
+- name: Record CIS hardening metadata
+  # DECISION: Write a marker file so operators can verify hardening at runtime.
+  # Why: After cloud-init boot, operators can check whether the image was CIS-hardened
+  #      without inspecting the Packer build logs or snapshot labels.
+  ansible.builtin.copy:
+    content: |
+      # CIS hardening applied at Packer build time
+      benchmark: UBUNTU24-CIS
+      benchmark_version: v1.0.0
+      role_version: 1.0.4
+      level: 1
+      applied_at: {{ ansible_date_time.iso8601 }}
+    dest: /etc/cis-hardening-applied
+    mode: "0444"
