@@ -21,7 +21,7 @@ data "cloudinit_config" "initial_control_plane" {
   gzip          = false
   base64_encode = false
 
-  # Part 1: Write RKE2 config.yaml via cloud-init write_files directive.
+  # Part 1: Write RKE2 config via cloud-init.
   # DECISION: Static config is written declaratively, not via shell heredoc.
   # Why: Cleaner separation of concerns. Config.yaml content is determined at
   #      plan time; only NODE_IP requires runtime detection.

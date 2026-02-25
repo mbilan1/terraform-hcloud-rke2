@@ -8,7 +8,7 @@
 # See: docs/ARCHITECTURE.md
 # ──────────────────────────────────────────────────────────────────────────────
 
-# ── Mock all 11 providers so plan runs without credentials ──────────────────
+# ── Mock all 7 providers so plan runs without credentials ───────────────────
 #
 # WORKAROUND: Hetzner provider uses numeric IDs internally, but Terraform
 # resource `id` attribute is always a string. With mock providers, the
@@ -69,14 +69,10 @@ mock_provider "remote" {
 }
 
 mock_provider "aws" {}
-mock_provider "kubectl" {}
-mock_provider "kubernetes" {}
-mock_provider "helm" {}
 mock_provider "cloudinit" {}
 mock_provider "random" {}
 mock_provider "tls" {}
 mock_provider "local" {}
-mock_provider "http" {}
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
 # ║  UT-V01: Default values pass validation                                   ║
@@ -326,41 +322,6 @@ run "subnet_address_rejects_invalid" {
   }
 
   expect_failures = [var.subnet_address]
-}
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  UT-V12: cluster_configuration.hcloud_csi.reclaim_policy — enum            ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-run "reclaim_policy_rejects_invalid" {
-  command = plan
-
-  variables {
-    cluster_domain   = "example.com"
-    hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
-    cluster_configuration = {
-      hcloud_csi = {
-        reclaim_policy = "Recycle"
-      }
-    }
-  }
-
-  expect_failures = [var.cluster_configuration]
-}
-
-run "reclaim_policy_accepts_retain" {
-  command = plan
-
-  variables {
-    cluster_domain   = "example.com"
-    hcloud_api_token = "mock-token"
-    domain           = "test.example.com"
-    cluster_configuration = {
-      hcloud_csi = {
-        reclaim_policy = "Retain"
-      }
-    }
-  }
 }
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗

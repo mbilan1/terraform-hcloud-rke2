@@ -17,7 +17,7 @@
 # See: modules/infrastructure/firewall.tf
 # ──────────────────────────────────────────────────────────────────────────────
 
-# ── Mock all providers (same boilerplate as other test files) ────────────────
+# ── Mock all 7 providers (same boilerplate as other test files) ─────────────
 
 mock_provider "hcloud" {
   mock_resource "hcloud_network" {
@@ -68,14 +68,10 @@ mock_provider "remote" {
 }
 
 mock_provider "aws" {}
-mock_provider "kubectl" {}
-mock_provider "kubernetes" {}
-mock_provider "helm" {}
 mock_provider "cloudinit" {}
 mock_provider "random" {}
 mock_provider "tls" {}
 mock_provider "local" {}
-mock_provider "http" {}
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
 # ║  UT-FW01: Canal VXLAN UDP 8472 is open on internal network                 ║

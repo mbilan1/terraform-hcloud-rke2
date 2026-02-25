@@ -4,14 +4,13 @@
 # DECISION: Test root module directly with variable sets that match example
 #           deployment patterns (e.g. openedx-tutor), instead of using
 #           module { source = "./examples/..." } indirection.
-# Why: Module indirection requires examples to declare all 11 providers
-#      (including non-hashicorp sources like gavinbunney/kubectl) for correct
-#      provider source resolution during tofu test. Testing root module directly
-#      with equivalent variable sets provides the same coverage without that
-#      maintenance burden.
+# Why: Module indirection requires examples to declare all providers
+#      for correct provider source resolution during tofu test. Testing root
+#      module directly with equivalent variable sets provides the same coverage
+#      without that maintenance burden.
 # ──────────────────────────────────────────────────────────────────────────────
 
-# ── Mock all providers (same config as other test files) ────────────────────
+# ── Mock all 7 providers (same config as other test files) ──────────────────
 mock_provider "hcloud" {
   mock_resource "hcloud_network" {
     defaults = {
@@ -61,14 +60,10 @@ mock_provider "remote" {
 }
 
 mock_provider "aws" {}
-mock_provider "kubectl" {}
-mock_provider "kubernetes" {}
-mock_provider "helm" {}
 mock_provider "cloudinit" {}
 mock_provider "random" {}
 mock_provider "tls" {}
 mock_provider "local" {}
-mock_provider "http" {}
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
 # ║  UT-E01: Minimal setup — 1 master, 0 workers, all defaults                ║
@@ -104,16 +99,6 @@ run "openedx_tutor_pattern_plans_successfully" {
     worker_node_server_type = "cx33"
     node_locations          = ["hel1", "nbg1", "fsn1"]
     cni_plugin              = "cilium"
-    letsencrypt_issuer      = "admin@example.com"
-
-    cluster_configuration = {
-      hcloud_controller = { preinstall = true }
-      hcloud_csi        = { preinstall = true, default_storage_class = true }
-      cert_manager      = { preinstall = true }
-    }
-
-    harmony = {
-      enabled = true
-    }
+    harmony_enabled         = true
   }
 }

@@ -11,7 +11,7 @@ terraform {
   # NOTE: Keep the same minimum OpenTofu/Terraform version as the root module.
   # Why: This module is not a standalone deployment, but explicit constraints
   #      prevent subtle drift when modules are tested or reused independently.
-  required_version = ">= 1.5.0"
+  required_version = ">= 1.7.0"
 
   required_providers {
     # Cloud platform — Hetzner Cloud for compute, network, firewall, LBs
@@ -23,7 +23,7 @@ terraform {
     # DNS — Route53 for wildcard record (conditional, only when create_dns_record = true)
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.0.0, < 6.0.0"
+      version = ">= 5.0.0"
     }
 
     # Server bootstrap — structured multipart cloud-init for node provisioning

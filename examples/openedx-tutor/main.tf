@@ -59,39 +59,14 @@ module "rke2" {
 
   cni_plugin = "cilium"
 
-  harmony = {
-    enabled = true
-
-    # NOTE: These are defaults; kept explicit in this example to document the
-    # out-of-the-box HTTPS behavior when Harmony is enabled.
-    enable_default_tls_certificate = true
-    default_tls_secret_name        = "harmony-default-tls"
-  }
-
-  letsencrypt_issuer = var.letsencrypt_email
+  # DECISION: Enable Harmony for ingress-nginx DaemonSet + ingress LB.
+  # Why: Open edX requires HTTPS ingress; Harmony provides ingress-nginx
+  #      with proper Hetzner LB integration.
+  harmony_enabled = true
 
   # ── Backup configuration ─────────────────────────────────────────────────
   # etcd snapshots to Hetzner Object Storage (same DC as cluster)
   cluster_configuration = {
-    hcloud_controller = { preinstall = true }
-    # DECISION: Use Longhorn for Open edX PVCs in this example
-    # Why: Demonstrates the intended "Longhorn-first" path (snapshots + replication).
-    #      Disabling Hetzner CSI avoids accidentally provisioning hcloud-volumes PVs
-    #      when users expect Longhorn.
-    hcloud_csi   = { preinstall = false, default_storage_class = false }
-    cert_manager = { preinstall = true }
-
-    longhorn = {
-      preinstall            = true
-      default_storage_class = true
-      replica_count         = 2
-
-      # Optional: enable Longhorn backup to S3 (Hetzner Object Storage)
-      # backup_target = "s3://<bucket>@eu-central/<prefix>"
-      # s3_access_key = var.backup_s3_access_key
-      # s3_secret_key = var.backup_s3_secret_key
-    }
-
     etcd_backup = {
       enabled       = var.enable_backups
       s3_bucket     = var.backup_s3_bucket

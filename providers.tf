@@ -2,15 +2,28 @@
 # Provider declarations — root-level configuration passed to child modules
 #
 # DECISION: All providers configured exclusively in the root module.
-# Why: OpenTofu/Terraform best practice — child modules (modules/infrastructure,
-#      modules/addons) declare required_providers for version constraints only,
-#      but never contain provider {} blocks. The root module owns configuration.
+# Why: OpenTofu/Terraform best practice — child modules (modules/infrastructure)
+#      declare required_providers for version constraints only, but never
+#      contain provider {} blocks. The root module owns configuration.
 # NOTE: This module is NOT a root deployment. No backend is configured here.
 #      Deployments live in examples/ or external repositories.
+#
+# DECISION: L4 providers (kubernetes, helm, kubectl, http) removed.
+# Why: L4 (addon Helm charts, K8s resources) is managed outside Terraform
+#      via Helmfile/ArgoCD/Flux. Terraform owns only L3 (infrastructure).
+#      HCCM — the sole chicken-egg exception — deploys via cloud-init
+#      RKE2 HelmChart manifests, requiring no K8s providers.
+# See: docs/ARCHITECTURE.md — Layer Separation
 # ──────────────────────────────────────────────────────────────────────────────
 
 terraform {
-  required_version = ">= 1.5.0"
+  # DECISION: Bump to >= 1.7.0 for `removed {}` block support.
+  # Why: Addon resources (helm_release, kubernetes_*, kubectl_manifest) were
+  #      moved to external management (Helmfile/ArgoCD). `removed {}` blocks
+  #      tell OpenTofu to drop them from state without destroying the live
+  #      K8s objects. Requires OpenTofu >= 1.7.0.
+  # See: https://opentofu.org/docs/language/resources/syntax/#removing-resources
+  required_version = ">= 1.7.0"
 
   required_providers {
     # ── Hetzner Cloud platform ──────────────────────────────────────────────
@@ -22,26 +35,7 @@ terraform {
     # ── AWS (Route53 DNS only) ──────────────────────────────────────────────
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 5.0.0, < 6.0.0"
-    }
-
-    # ── Kubernetes resource management ──────────────────────────────────────
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = ">= 2.23.0"
-    }
-    helm = {
-      source  = "hashicorp/helm"
-      version = ">= 2.11.0"
-    }
-    # COMPROMISE: Using gavinbunney/kubectl instead of hashicorp/kubernetes for raw manifests
-    # Why: kubernetes provider doesn't support applying arbitrary YAML manifests.
-    #      alekc/kubectl is a maintained fork with more features (v2.x), but migration
-    #      is a breaking change requiring provider source swap + state surgery.
-    # See: docs/ARCHITECTURE.md — Provider Constraints
-    kubectl = {
-      source  = "gavinbunney/kubectl"
-      version = ">= 1.19.0, < 2.0.0"
+      version = ">= 5.0.0"
     }
 
     # ── Server bootstrap and provisioning ───────────────────────────────────
@@ -66,12 +60,6 @@ terraform {
     local = {
       source  = "hashicorp/local"
       version = ">= 2.4.0, < 3.0.0"
-    }
-
-    # ── HTTP data fetching (System Upgrade Controller manifests) ────────────
-    http = {
-      source  = "hashicorp/http"
-      version = ">= 3.4.0, < 4.0.0"
     }
   }
 }
@@ -112,39 +100,4 @@ provider "aws" {
   skip_credentials_validation = local.aws_skip_validation
   skip_requesting_account_id  = local.aws_skip_validation
   skip_metadata_api_check     = local.aws_skip_validation
-}
-
-# ── Kubernetes ecosystem (credentials from infrastructure module output) ─────
-#
-# DECISION: All three K8s-facing providers consume kubeconfig credentials
-# produced by module.infrastructure after cluster bootstrap completes.
-# Why: Ensures addons deploy to the correct cluster with valid mTLS. The
-#      infrastructure module outputs are empty strings during initial plan
-#      (before any apply) which providers handle gracefully.
-
-provider "kubernetes" {
-  host = module.infrastructure.cluster_host
-
-  cluster_ca_certificate = module.infrastructure.cluster_ca
-  client_certificate     = module.infrastructure.client_cert
-  client_key             = module.infrastructure.client_key
-}
-
-provider "helm" {
-  kubernetes = {
-    host = module.infrastructure.cluster_host
-
-    cluster_ca_certificate = module.infrastructure.cluster_ca
-    client_certificate     = module.infrastructure.client_cert
-    client_key             = module.infrastructure.client_key
-  }
-}
-
-provider "kubectl" {
-  host             = module.infrastructure.cluster_host
-  load_config_file = false
-
-  cluster_ca_certificate = module.infrastructure.cluster_ca
-  client_certificate     = module.infrastructure.client_cert
-  client_key             = module.infrastructure.client_key
 }

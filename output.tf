@@ -65,24 +65,7 @@ output "cluster_worker_nodes_ipv4" {
   value       = module.infrastructure.worker_nodes_ipv4
 }
 
-output "cluster_issuer_name" {
-  description = "The name of the cert-manager ClusterIssuer created by this module"
-  value       = var.cluster_issuer_name
-}
-
 output "etcd_backup_enabled" {
   description = "Whether automated etcd snapshots with S3 upload are enabled"
   value       = var.cluster_configuration.etcd_backup.enabled
-}
-
-output "longhorn_enabled" {
-  description = "Whether Longhorn distributed storage is enabled (experimental)"
-  value       = var.cluster_configuration.longhorn.preinstall
-}
-
-# DECISION: Expose active storage driver for downstream consumers.
-# Why: Downstream modules (e.g. Tutor) may need to know which StorageClass to use.
-output "storage_driver" {
-  description = "Primary storage driver: 'longhorn' if Longhorn is enabled, 'hcloud-csi' otherwise"
-  value       = var.cluster_configuration.longhorn.preinstall ? "longhorn" : "hcloud-csi"
 }
